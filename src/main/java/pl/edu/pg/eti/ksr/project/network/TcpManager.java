@@ -2,14 +2,19 @@ package pl.edu.pg.eti.ksr.project.network;
 
 import lombok.Getter;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
+import pl.edu.pg.eti.ksr.project.network.observer.Channel;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TcpManager implements NetworkManager {
+
+    private List<Channel> channels;
 
     ServerSocket serverSocket;
 
@@ -22,11 +27,22 @@ public class TcpManager implements NetworkManager {
     @Getter
     private Status status;
 
-    void changeStatus(Status status) { // add change status observer
+    void changeStatus(Status status) {
         if (status != this.status) {
-
             this.status = status;
+
+            for (Channel channel : this.channels) {
+                channel.update(Channel.NewsType.STATE_CHANGE, this.status);
+            }
         }
+    }
+
+    public void addObserver(Channel channel) {
+        this.channels.add(channel);
+    }
+
+    public void removeObserver(Channel channel) {
+        this.channels.remove(channel);
     }
 
     @Override
@@ -170,5 +186,6 @@ public class TcpManager implements NetworkManager {
 
     public TcpManager() {
         this.status = Status.READY;
+        this.channels = new ArrayList<>();
     }
 }

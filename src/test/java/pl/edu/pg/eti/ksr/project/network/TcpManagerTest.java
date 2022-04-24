@@ -4,7 +4,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.Assert;
+import org.mockito.Mock;
+import org.mockito.Mockito;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
+import pl.edu.pg.eti.ksr.project.network.observer.Channel;
 
 public class TcpManagerTest {
 
@@ -105,10 +108,22 @@ public class TcpManagerTest {
 
         String data = "test";
         Frame receivedFrame = new Frame();
-        manager1.send(new Frame(Frame.Type.DATA, data));
-        manager2.receive(receivedFrame);
+        boolean ifSent = manager1.send(new Frame(Frame.Type.DATA, data));
+        boolean ifReceived = manager2.receive(receivedFrame);
 
         Assert.assertEquals(data, receivedFrame.data);
         Assert.assertEquals(Frame.Type.DATA, receivedFrame.frameType);
+        Assert.assertTrue(ifSent);
+        Assert.assertTrue(ifReceived);
+    }
+
+    @Test
+    public void Should_NotifyObservers_When_StateChanged() {
+        Channel channel = Mockito.mock(Channel.class);
+
+        manager1.addObserver(channel);
+        manager1.listen();
+        Mockito.verify(channel)
+                .update(Channel.NewsType.STATE_CHANGE, NetworkManager.Status.LISTENING);
     }
 }
