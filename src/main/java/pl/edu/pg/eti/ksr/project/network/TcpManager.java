@@ -1,27 +1,28 @@
 package pl.edu.pg.eti.ksr.project.network;
 
 import lombok.Getter;
-import lombok.Setter;
-import pl.edu.pg.eti.ksr.project.network.thread.TcpServerListener;
+import pl.edu.pg.eti.ksr.project.network.data.Frame;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 public class TcpManager implements NetworkManager {
 
-    @Getter
-    @Setter
-    private ServerSocket serverSocket;
+    ServerSocket serverSocket;
 
-    @Getter
-    @Setter
-    private Socket clientSocket;
+    Socket clientSocket;
+
+    ObjectInputStream in;
+
+    ObjectOutputStream out;
 
     @Getter
     private Status status;
 
-    public void changeStatus(Status status) { // add change status observer
+    void changeStatus(Status status) { // add change status observer
         if (status != this.status) {
 
             this.status = status;
@@ -83,6 +84,8 @@ public class TcpManager implements NetworkManager {
 
         try {
             clientSocket = new Socket(ip, port);
+            out = new ObjectOutputStream(clientSocket.getOutputStream());
+            in = new ObjectInputStream(clientSocket.getInputStream());
             changeStatus(Status.CONNECTED);
             return true;
         } catch (IOException e) {
@@ -95,23 +98,74 @@ public class TcpManager implements NetworkManager {
 
     @Override
     public void disconnect() {
-        if (status == Status.CONNECTED) {
-            try {
-                if (serverSocket != null) serverSocket.close();
-                clientSocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                clientSocket = null;
-                serverSocket = null;
-                changeStatus(Status.READY);
-            }
+        if (status != Status.CONNECTED) return;
+
+        try {
+            in.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+        try {
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try {
+            if (serverSocket != null) serverSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try {
+            clientSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        in = null;
+        out = null;
+        clientSocket = null;
+        serverSocket = null;
+        changeStatus(Status.READY);
     }
 
     @Override
     public boolean isConnected() {
         return status == Status.CONNECTED;
+    }
+
+    @Override
+    public boolean send(Frame frame) {
+        if (status != Status.CONNECTED) return false;
+
+        try {
+            out.writeObject(frame);
+        } catch (IOException e) {
+            e.printStackTrace();
+            disconnect();
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean receive(Frame frame) {
+        if (status != Status.CONNECTED) return false;
+
+        try {
+            Frame received = (Frame) in.readObject();
+            frame.frameType = received.frameType;
+            frame.data = received.data;
+        } catch (IOException e) {
+            e.printStackTrace();
+            disconnect();
+            return false;
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return true;
     }
 
     public TcpManager() {

@@ -1,5 +1,7 @@
 package pl.edu.pg.eti.ksr.project.network;
 
+import pl.edu.pg.eti.ksr.project.network.data.Frame;
+
 /**
  * Basic functionality of Network Manager.
  */
@@ -79,4 +81,21 @@ public interface NetworkManager {
      * @return true if connected to other server, or other client connected to this server
      */
     boolean isConnected();
+
+    /**
+     * Sends frame if connected.
+     * If sending frame was unsuccessful, checks connection.
+     * @param frame frame to be sent
+     * @return true if sent successfully, false otherwise
+     */
+    boolean send(Frame frame);
+
+    /**
+     * Receives frame if connected.
+     * All data is written to provided frame object.
+     * If exception thrown, checks connection.
+     * @param frame object for data to be written to
+     * @return true if receive was successful, false otherwise
+     */
+    boolean receive(Frame frame);
 }

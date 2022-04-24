@@ -4,6 +4,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.Assert;
+import pl.edu.pg.eti.ksr.project.network.data.Frame;
 
 public class TcpManagerTest {
 
@@ -46,7 +47,7 @@ public class TcpManagerTest {
     public void Should_ServerSocketIsNull_When_StopCalledAfterListenCalled() {
         manager1.listen();
         manager1.stop();
-        Assert.assertNull(manager1.getServerSocket());
+        Assert.assertNull(manager1.serverSocket);
     }
 
     @Test
@@ -93,5 +94,21 @@ public class TcpManagerTest {
         Thread.sleep(1000);
         manager2.disconnect();
         Assert.assertEquals(NetworkManager.Status.READY, manager2.getStatus());
+    }
+
+    @Test
+    public void Should_ReceiveData_When_DataIsSent() throws InterruptedException {
+        manager1.listen();
+        Thread.sleep(1000);
+        manager2.connect("localhost", NetworkManager.DEFAULT_PORT);
+        Thread.sleep(1000);
+
+        String data = "test";
+        Frame receivedFrame = new Frame();
+        manager1.send(new Frame(Frame.Type.DATA, data));
+        manager2.receive(receivedFrame);
+
+        Assert.assertEquals(data, receivedFrame.data);
+        Assert.assertEquals(Frame.Type.DATA, receivedFrame.frameType);
     }
 }
