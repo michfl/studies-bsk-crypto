@@ -1,4 +1,4 @@
-module org.example {
+module pl.edu.pg.eti.ksr.project {
     requires javafx.controls;
     requires javafx.fxml;
     requires lombok;
