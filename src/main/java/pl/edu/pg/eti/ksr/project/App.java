@@ -1,13 +1,12 @@
-package org.example;
+package pl.edu.pg.eti.ksr.project;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import org.example.Accounts.AccountManager;
+import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
 
-import java.io.File;
 import java.io.IOException;
 
 /**

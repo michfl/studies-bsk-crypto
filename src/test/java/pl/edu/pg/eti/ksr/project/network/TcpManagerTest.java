@@ -4,12 +4,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.Assert;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
 import pl.edu.pg.eti.ksr.project.network.observer.Channel;
-
-import java.net.SocketTimeoutException;
 
 public class TcpManagerTest {
 

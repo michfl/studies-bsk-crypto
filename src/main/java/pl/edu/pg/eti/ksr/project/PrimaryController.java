@@ -1,4 +1,4 @@
-package org.example;
+package pl.edu.pg.eti.ksr.project;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -6,7 +6,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.paint.Color;
-import org.example.Accounts.AccountManager;
+import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
 
 public class PrimaryController {
 

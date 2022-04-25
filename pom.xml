@@ -66,7 +66,7 @@
                         <!-- Usage: mvn clean javafx:run -->
                         <id>default-cli</id>
                         <configuration>
-                            <mainClass>org.example.App</mainClass>
+                            <mainClass>pl.edu.pg.eti.ksr.project.App</mainClass>
                         </configuration>
                     </execution>
                 </executions>

@@ -1,4 +1,4 @@
-package org.example.Accounts;
+package pl.edu.pg.eti.ksr.project.accounts;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -7,7 +7,6 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.KeySpec;
 import java.util.*;

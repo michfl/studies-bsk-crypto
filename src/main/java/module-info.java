@@ -1,7 +1,8 @@
 module org.example {
     requires javafx.controls;
     requires javafx.fxml;
+    requires lombok;
 
-    opens org.example to javafx.fxml;
-    exports org.example;
+    opens pl.edu.pg.eti.ksr.project to javafx.fxml;
+    exports pl.edu.pg.eti.ksr.project;
 }

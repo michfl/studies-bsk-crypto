@@ -1,4 +1,4 @@
-package org.example;
+package pl.edu.pg.eti.ksr.project;
 
 import java.io.IOException;
 import javafx.fxml.FXML;

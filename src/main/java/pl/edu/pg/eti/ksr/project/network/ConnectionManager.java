@@ -2,7 +2,6 @@ package pl.edu.pg.eti.ksr.project.network;
 
 import lombok.Getter;
 import lombok.Setter;
-import pl.edu.pg.eti.ksr.project.network.data.ConfigurationDTO;
 
 import java.util.List;
 
