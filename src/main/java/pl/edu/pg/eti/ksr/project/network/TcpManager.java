@@ -1,6 +1,7 @@
 package pl.edu.pg.eti.ksr.project.network;
 
 import lombok.Getter;
+import lombok.Setter;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
 import pl.edu.pg.eti.ksr.project.network.observer.Channel;
 
@@ -9,12 +10,14 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class TcpManager implements NetworkManager {
 
-    private List<Channel> channels;
+    private final List<Channel> channels;
 
     ServerSocket serverSocket;
 

@@ -2,6 +2,8 @@ package pl.edu.pg.eti.ksr.project.network;
 
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
 
+import java.net.SocketTimeoutException;
+
 /**
  * Basic functionality of Network Manager.
  */
@@ -91,11 +93,13 @@ public interface NetworkManager {
     boolean send(Frame frame);
 
     /**
-     * Receives frame if connected.
+     * Receives frame if connected, for a specified amount of time.
+     * If timeout reached, throws SocketTimeoutException.
      * All data is written to provided frame object.
      * If exception thrown, checks connection.
      * @param frame object for data to be written to
      * @return true if receive was successful, false otherwise
      */
-    boolean receive(Frame frame);
+    boolean receive(Frame frame) throws SocketTimeoutException;
+
 }

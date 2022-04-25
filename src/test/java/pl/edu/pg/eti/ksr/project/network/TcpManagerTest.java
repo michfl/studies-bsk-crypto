@@ -9,6 +9,8 @@ import org.mockito.Mockito;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
 import pl.edu.pg.eti.ksr.project.network.observer.Channel;
 
+import java.net.SocketTimeoutException;
+
 public class TcpManagerTest {
 
     private TcpManager manager1;
