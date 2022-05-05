@@ -2,7 +2,8 @@ package pl.edu.pg.eti.ksr.project.network;
 
 import lombok.Getter;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
-import pl.edu.pg.eti.ksr.project.network.observer.Channel;
+import pl.edu.pg.eti.ksr.project.observer.Observer;
+import pl.edu.pg.eti.ksr.project.observer.Subject;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -12,9 +13,9 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TcpManager implements NetworkManager {
+public class TcpManager implements NetworkManager, Subject {
 
-    private final List<Channel> channels;
+    private final List<Observer> observers;
 
     ServerSocket serverSocket;
 
@@ -30,19 +31,25 @@ public class TcpManager implements NetworkManager {
     void changeStatus(Status status) {
         if (status != this.status) {
             this.status = status;
-
-            for (Channel channel : this.channels) {
-                channel.update(Channel.NewsType.STATE_CHANGE, this.status);
-            }
+            notifyObs(Subject.NewsType.STATE_CHANGE, this.status);
         }
     }
 
-    public void addObserver(Channel channel) {
-        this.channels.add(channel);
+    @Override
+    public void attach(Observer observer) {
+        this.observers.add(observer);
     }
 
-    public void removeObserver(Channel channel) {
-        this.channels.remove(channel);
+    @Override
+    public void detach(Observer observer) {
+        this.observers.remove(observer);
+    }
+
+    @Override
+    public void notifyObs(NewsType type, Object o) {
+        for (Observer observer : this.observers) {
+            observer.update(type, o);
+        }
     }
 
     @Override
@@ -186,6 +193,6 @@ public class TcpManager implements NetworkManager {
 
     public TcpManager() {
         this.status = Status.READY;
-        this.channels = new ArrayList<>();
+        this.observers = new ArrayList<>();
     }
 }

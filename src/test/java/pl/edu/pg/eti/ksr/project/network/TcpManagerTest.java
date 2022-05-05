@@ -6,7 +6,8 @@ import org.junit.Test;
 import org.junit.Assert;
 import org.mockito.Mockito;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
-import pl.edu.pg.eti.ksr.project.network.observer.Channel;
+import pl.edu.pg.eti.ksr.project.observer.Observer;
+import pl.edu.pg.eti.ksr.project.observer.Subject;
 
 public class TcpManagerTest {
 
@@ -118,11 +119,11 @@ public class TcpManagerTest {
 
     @Test
     public void Should_NotifyObservers_When_StateChanged() {
-        Channel channel = Mockito.mock(Channel.class);
+        Observer observer = Mockito.mock(Observer.class);
 
-        manager1.addObserver(channel);
+        manager1.attach(observer);
         manager1.listen();
-        Mockito.verify(channel)
-                .update(Channel.NewsType.STATE_CHANGE, NetworkManager.Status.LISTENING);
+        Mockito.verify(observer)
+                .update(Subject.NewsType.STATE_CHANGE, NetworkManager.Status.LISTENING);
     }
 }
