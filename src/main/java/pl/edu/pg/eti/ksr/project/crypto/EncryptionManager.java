@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.security.*;
 import java.util.Random;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -97,6 +98,24 @@ public class EncryptionManager {
 
         running.set(true);
         new Thread(new FileToFileEncryptor(cipher, source, target, running)).start();
+    }
+
+    /**
+     * Encrypts provided file and outputs to provided queue.
+     * @param source path to a file to be encrypted
+     * @param target queue to which encrypted data will be inserted
+     * @param key key for encryption
+     * @param iv IV for encrypting
+     * @throws InvalidAlgorithmParameterException problem with provided IV
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
+    public void encrypt(Path source, BlockingQueue<byte[]> target, Key key, IvParameterSpec iv)
+            throws InvalidAlgorithmParameterException, InvalidKeyException {
+
+        cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+
+        running.set(true);
+        new Thread(new FileToBlockingQueueEncryptor(cipher, source, target, running)).start();
     }
 
     /**

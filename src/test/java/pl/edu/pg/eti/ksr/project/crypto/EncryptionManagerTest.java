@@ -16,6 +16,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public class EncryptionManagerTest {
 
@@ -136,5 +138,21 @@ public class EncryptionManagerTest {
 
         long result = Files.mismatch(sourceFile, targetDecryptedFile);
         Assert.assertEquals(-1L, result);
+    }
+
+    @Test
+    public void Should_AddCipheredDataToQueue_When_PerformingFileEncryptionToQueue()
+            throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
+            InterruptedException {
+
+        BlockingQueue<byte[]> blockingQueue = new LinkedBlockingDeque<>();
+
+        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(16);
+
+        manager.encrypt(sourceFile, blockingQueue, key, iv);
+        Thread.sleep(1000);
+
+        Assert.assertFalse(blockingQueue.isEmpty());
     }
 }
