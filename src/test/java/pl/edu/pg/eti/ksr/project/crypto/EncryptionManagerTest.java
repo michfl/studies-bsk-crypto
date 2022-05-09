@@ -1,25 +1,41 @@
 package pl.edu.pg.eti.ksr.project.crypto;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.*;
 
 public class EncryptionManagerTest {
 
     private EncryptionManager manager;
     private Transformation transformation = Transformation.AES_CBC_PKCS5Padding;
+    private final Path sourceFile = Path.of("./src/test/resources/test.txt");
+    private final Path targetEncryptedFile = Path.of("./src/test/resources/encryptedTest.txt");
+    private final Path targetDecryptedFile = Path.of("./src/test/resources/decryptedTest.txt");
 
     @Before
     public void init() throws NoSuchPaddingException, NoSuchAlgorithmException {
         manager = new EncryptionManager(transformation.getText(), 8192);
+    }
+
+    @After
+    public void cleanup() {
+        File trgEncrypted = targetEncryptedFile.toFile();
+        File trgDecrypted = targetDecryptedFile.toFile();
+        if (trgEncrypted.exists()) trgEncrypted.delete();
+        if (trgDecrypted.exists()) trgDecrypted.delete();
     }
 
     @Test
@@ -88,5 +104,37 @@ public class EncryptionManagerTest {
         Assert.assertEquals(text, decipheredTextDES);
         Assert.assertEquals(text, decipheredTextDESede);
         Assert.assertEquals(text, decipheredTextRSA);
+    }
+
+    @Test
+    public void Should_CreateEncryptedFileOnTheSpecifiedPath_When_EncryptingToFile()
+            throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
+            InterruptedException {
+
+        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(16);
+
+        manager.encrypt(sourceFile, targetEncryptedFile, key, iv);
+        Thread.sleep(1000);
+
+        Assert.assertTrue(targetEncryptedFile.toFile().exists());
+    }
+
+    @Test
+    public void Should_SourceFileAndDecryptedSourceFileBeIdentical_When_PerformingFileEncryptionAndDecryption()
+            throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
+            InterruptedException, IOException {
+
+        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(16);
+
+        manager.encrypt(sourceFile, targetEncryptedFile, key, iv);
+        Thread.sleep(1000);
+
+        manager.decrypt(targetEncryptedFile, targetDecryptedFile, key, iv);
+        Thread.sleep(1000);
+
+        long result = Files.mismatch(sourceFile, targetDecryptedFile);
+        Assert.assertEquals(-1L, result);
     }
 }

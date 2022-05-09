@@ -5,11 +5,14 @@ import lombok.Setter;
 
 import javax.crypto.*;
 import javax.crypto.spec.IvParameterSpec;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.*;
+import java.util.Random;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Manager for all encryption and decryption operations.
@@ -27,6 +30,8 @@ public class EncryptionManager {
     private String transformation;
 
     private Cipher cipher;
+
+    private final AtomicBoolean running;
 
     /**
      * Sets new transformation for next operations.
@@ -76,12 +81,22 @@ public class EncryptionManager {
         return cipher.doFinal(input);
     }
 
+    /**
+     * Encrypts provided file and outputs to another file.
+     * @param source path to a file to be encrypted
+     * @param target path to a file that will consist ciphered input file
+     * @param key key for encryption
+     * @param iv IV for encrypting
+     * @throws InvalidAlgorithmParameterException problem with provided IV
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
     public void encrypt(Path source, Path target, Key key, IvParameterSpec iv)
             throws InvalidAlgorithmParameterException, InvalidKeyException {
 
         cipher.init(Cipher.ENCRYPT_MODE, key, iv);
 
-
+        running.set(true);
+        new Thread(new FileToFileEncryptor(cipher, source, target, running)).start();
     }
 
     /**
@@ -119,6 +134,24 @@ public class EncryptionManager {
     }
 
     /**
+     * Decrypts provided file and outputs to another file.
+     * @param source path to a file to be decrypted
+     * @param target path to a file that will consist decrypted input file
+     * @param key key for decryption
+     * @param iv IV for decrypting
+     * @throws InvalidAlgorithmParameterException problem with provided IV
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
+    public void decrypt(Path source, Path target, Key key, IvParameterSpec iv)
+            throws InvalidAlgorithmParameterException, InvalidKeyException {
+
+        cipher.init(Cipher.DECRYPT_MODE, key, iv);
+
+        running.set(true);
+        new Thread(new FileToFileEncryptor(cipher, source, target, running)).start();
+    }
+
+    /**
      * Decrypts provided cipher text.
      * @param cipherText cipher text for decryption
      * @param key key for decryption
@@ -149,6 +182,14 @@ public class EncryptionManager {
             throws InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
         return new String(encrypt(Cipher.DECRYPT_MODE, cipherText, key), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Stops currently running threads.
+     * Can be used for stopping file encryption or decryption tasks.
+     */
+    public void stopCurrentWork() {
+        running.set(false);
     }
 
     /**
@@ -199,5 +240,6 @@ public class EncryptionManager {
         this.cipher = Cipher.getInstance(transformation);
         this.transformation = transformation;
         this.bufferSize = bufferSize;
+        this.running = new AtomicBoolean(false);
     }
 }
