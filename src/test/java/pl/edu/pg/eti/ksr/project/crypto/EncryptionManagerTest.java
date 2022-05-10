@@ -29,7 +29,7 @@ public class EncryptionManagerTest {
 
     @Before
     public void init() throws NoSuchPaddingException, NoSuchAlgorithmException {
-        manager = new EncryptionManager(transformation.getText(), 8192);
+        manager = new EncryptionManager(transformation.getText());
     }
 
     @After
@@ -123,7 +123,7 @@ public class EncryptionManagerTest {
     }
 
     @Test
-    public void Should_SourceFileAndDecryptedSourceFileBeIdentical_When_PerformingFileEncryptionAndDecryption()
+    public void Should_SourceFileAndDecryptedSourceFileBeIdentical_When_PerformingFileEncryptionAndDecryptionUsingFileToFileMethod()
             throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
             InterruptedException, IOException {
 
@@ -145,7 +145,7 @@ public class EncryptionManagerTest {
             throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
             InterruptedException {
 
-        BlockingQueue<byte[]> blockingQueue = new LinkedBlockingDeque<>();
+        BlockingQueue<byte[]> blockingQueue = new LinkedBlockingDeque<>(1024);
 
         Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
         IvParameterSpec iv = EncryptionManager.generateIv(16);
@@ -154,5 +154,25 @@ public class EncryptionManagerTest {
         Thread.sleep(1000);
 
         Assert.assertFalse(blockingQueue.isEmpty());
+    }
+
+    @Test
+    public void Should_SourceFileAndDecryptedSourceFileBeIdentical_When_PerformingFileEncryptionAndDecryptionUsingBlockingQueueMethod()
+            throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
+            InterruptedException, IOException {
+        BlockingQueue<byte[]> blockingQueue = new LinkedBlockingDeque<>(1024);
+
+        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(16);
+
+        manager.encrypt(sourceFile, blockingQueue, key, iv);
+        Thread.sleep(1000);
+
+        manager.decrypt(blockingQueue, targetDecryptedFile, key, iv);
+        Thread.sleep(1000);
+
+        Assert.assertTrue(blockingQueue.isEmpty());
+        long result = Files.mismatch(sourceFile, targetDecryptedFile);
+        Assert.assertEquals(-1L, result);
     }
 }

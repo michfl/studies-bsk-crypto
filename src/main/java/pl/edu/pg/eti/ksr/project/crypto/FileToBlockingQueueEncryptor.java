@@ -40,7 +40,8 @@ public class FileToBlockingQueueEncryptor implements Runnable {
     private Path input;
 
     /**
-     * Queue to which encrypted data will be inserted
+     * Queue to which encrypted data will be inserted.
+     * Provided queue should be bounded to prevent keeping all file data in memory.
      */
     private BlockingQueue<byte[]> queue;
 
@@ -68,6 +69,7 @@ public class FileToBlockingQueueEncryptor implements Runnable {
                 System.arraycopy(buffer, 0, cyphered, 0, count);
                 queue.put(cyphered);
             }
+            queue.put(new byte[0]); // stop condition - end of file
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         } finally {

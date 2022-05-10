@@ -9,6 +9,8 @@ import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,6 +60,22 @@ public class BlockingQueueToFileEncryptor implements Runnable {
             return;
         }
 
-        // Get elements from queue and write to output stream ...
+        byte[] buffer;
+        try {
+            while (running.get()) {
+                buffer = queue.take();
+                if (buffer.length == 0) break; // stop condition met
+
+                out.write(buffer, 0, buffer.length);
+            }
+        } catch (IOException | InterruptedException exception) {
+            exception.printStackTrace();
+        } finally {
+            try {
+                out.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

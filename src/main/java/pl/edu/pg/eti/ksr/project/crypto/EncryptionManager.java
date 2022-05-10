@@ -20,19 +20,29 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class EncryptionManager {
 
-    @Getter
-    private final BlockingDeque<byte[]> encryptionBuffer;
-
-    @Getter
-    @Setter
-    private int bufferSize;
-
+    /**
+     * String representation of transformation used in initialization of Cipher object.
+     */
     @Getter
     private String transformation;
 
+    /**
+     * Cipher object used during encryption and decryption.
+     */
+    @Getter
     private Cipher cipher;
 
+    /**
+     * Flag for stopping running threads.
+     */
+    @Getter
     private final AtomicBoolean running;
+
+    /**
+     * Reference to the currently running thread.
+     */
+    @Getter
+    private Thread thread;
 
     /**
      * Sets new transformation for next operations.
@@ -97,7 +107,8 @@ public class EncryptionManager {
         cipher.init(Cipher.ENCRYPT_MODE, key, iv);
 
         running.set(true);
-        new Thread(new FileToFileEncryptor(cipher, source, target, running)).start();
+        thread = new Thread(new FileToFileEncryptor(cipher, source, target, running));
+        thread.start();
     }
 
     /**
@@ -115,7 +126,8 @@ public class EncryptionManager {
         cipher.init(Cipher.ENCRYPT_MODE, key, iv);
 
         running.set(true);
-        new Thread(new FileToBlockingQueueEncryptor(cipher, source, target, running)).start();
+        thread = new Thread(new FileToBlockingQueueEncryptor(cipher, source, target, running));
+        thread.start();
     }
 
     /**
@@ -167,7 +179,18 @@ public class EncryptionManager {
         cipher.init(Cipher.DECRYPT_MODE, key, iv);
 
         running.set(true);
-        new Thread(new FileToFileEncryptor(cipher, source, target, running)).start();
+        thread = new Thread(new FileToFileEncryptor(cipher, source, target, running));
+        thread.start();
+    }
+
+    public void decrypt(BlockingQueue<byte[]> source, Path target, Key key, IvParameterSpec iv)
+            throws InvalidAlgorithmParameterException, InvalidKeyException {
+
+        cipher.init(Cipher.DECRYPT_MODE, key, iv);
+
+        running.set(true);
+        thread = new Thread(new BlockingQueueToFileEncryptor(cipher, source, target, running));
+        thread.start();
     }
 
     /**
@@ -209,6 +232,7 @@ public class EncryptionManager {
      */
     public void stopCurrentWork() {
         running.set(false);
+        if (thread != null && thread.isAlive()) thread.interrupt();
     }
 
     /**
@@ -254,11 +278,11 @@ public class EncryptionManager {
      * @throws NoSuchPaddingException wrong padding setting passed
      * @throws NoSuchAlgorithmException wrong algorithm setting passed
      */
-    public EncryptionManager(String transformation, int bufferSize) throws NoSuchPaddingException, NoSuchAlgorithmException {
-        this.encryptionBuffer = new LinkedBlockingDeque<>();
+    public EncryptionManager(String transformation) throws NoSuchPaddingException, NoSuchAlgorithmException {
+
         this.cipher = Cipher.getInstance(transformation);
         this.transformation = transformation;
-        this.bufferSize = bufferSize;
         this.running = new AtomicBoolean(false);
+        this.thread = null;
     }
 }
