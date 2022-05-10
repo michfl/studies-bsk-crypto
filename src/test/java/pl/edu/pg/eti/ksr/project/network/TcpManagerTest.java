@@ -1,5 +1,6 @@
 package pl.edu.pg.eti.ksr.project.network;
 
+import org.awaitility.Awaitility;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -8,6 +9,9 @@ import org.mockito.Mockito;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
 import pl.edu.pg.eti.ksr.project.observer.Observer;
 import pl.edu.pg.eti.ksr.project.observer.Subject;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 public class TcpManagerTest {
 
@@ -53,58 +57,89 @@ public class TcpManagerTest {
         Assert.assertNull(manager1.serverSocket);
     }
 
-    @Test
-    public void Should_HaveStatusReady_When_StopCalledAfterListenCalled() throws InterruptedException {
-        manager1.listen();
-        manager1.stop();
-        Thread.sleep(1000);
-        Assert.assertEquals(NetworkManager.Status.READY, manager1.getStatus());
+    private Callable<Boolean> manager1HasStatusReady() {
+        return () -> manager1.getStatus() == NetworkManager.Status.READY;
     }
 
     @Test
-    public void Should_ReturnTrue_When_ConnectionEstablished() throws InterruptedException {
+    public void Should_HaveStatusReady_When_StopCalledAfterListenCalled() {
         manager1.listen();
-        Thread.sleep(1000);
+        manager1.stop();
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusReady());
+    }
+
+    private Callable<Boolean> manager1HasStatusListening() {
+        return () -> manager1.getStatus() == NetworkManager.Status.LISTENING;
+    }
+
+    @Test
+    public void Should_ReturnTrue_When_ConnectionEstablished() {
+        manager1.listen();
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
+
         boolean result = manager2.connect("localhost", NetworkManager.DEFAULT_PORT);
         Assert.assertTrue(result);
     }
 
-    @Test
-    public void Should_HaveStatusConnected_When_ConnectionEstablished() throws InterruptedException {
-        manager1.listen();
-        Thread.sleep(1000);
-        manager2.connect("localhost", NetworkManager.DEFAULT_PORT);
-        Thread.sleep(1000);
-        Assert.assertEquals(NetworkManager.Status.CONNECTED, manager1.getStatus());
-        Assert.assertEquals(NetworkManager.Status.CONNECTED, manager2.getStatus());
+    private Callable<Boolean> manager1HasStatusConnected() {
+        return () -> manager1.getStatus() == NetworkManager.Status.CONNECTED;
+    }
+
+    private Callable<Boolean> manager2HasStatusConnected() {
+        return () -> manager2.getStatus() == NetworkManager.Status.CONNECTED;
     }
 
     @Test
-    public void Should_HaveStatusReady_When_Disconnected1() throws InterruptedException {
+    public void Should_HaveStatusConnected_When_ConnectionEstablished() {
         manager1.listen();
-        Thread.sleep(1000);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
+
         manager2.connect("localhost", NetworkManager.DEFAULT_PORT);
-        Thread.sleep(1000);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusConnected());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager2HasStatusConnected());
+    }
+
+    @Test
+    public void Should_HaveStatusReady_When_Disconnected1() {
+        manager1.listen();
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
+
+        manager2.connect("localhost", NetworkManager.DEFAULT_PORT);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager2HasStatusConnected());
+
         manager1.disconnect();
         Assert.assertEquals(NetworkManager.Status.READY, manager1.getStatus());
     }
 
     @Test
-    public void Should_HaveStatusReady_When_Disconnected2() throws InterruptedException {
+    public void Should_HaveStatusReady_When_Disconnected2()  {
         manager1.listen();
-        Thread.sleep(1000);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
+
         manager2.connect("localhost", NetworkManager.DEFAULT_PORT);
-        Thread.sleep(1000);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager2HasStatusConnected());
+
         manager2.disconnect();
         Assert.assertEquals(NetworkManager.Status.READY, manager2.getStatus());
     }
 
     @Test
-    public void Should_ReceiveData_When_DataIsSent() throws InterruptedException {
+    public void Should_ReceiveData_When_DataIsSent(){
         manager1.listen();
-        Thread.sleep(1000);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
+
         manager2.connect("localhost", NetworkManager.DEFAULT_PORT);
-        Thread.sleep(1000);
+
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager2HasStatusConnected());
 
         String data = "test";
         Frame receivedFrame = new Frame();

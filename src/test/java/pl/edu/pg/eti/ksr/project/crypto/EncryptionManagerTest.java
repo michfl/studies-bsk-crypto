@@ -33,7 +33,7 @@ public class EncryptionManagerTest {
     }
 
     @After
-    public void cleanup() {
+    public void teardown() {
         File trgEncrypted = targetEncryptedFile.toFile();
         File trgDecrypted = targetDecryptedFile.toFile();
         if (trgEncrypted.exists()) trgEncrypted.delete();
@@ -117,7 +117,7 @@ public class EncryptionManagerTest {
         IvParameterSpec iv = EncryptionManager.generateIv(16);
 
         manager.encrypt(sourceFile, targetEncryptedFile, key, iv);
-        Thread.sleep(1000);
+        manager.getThread().join();
 
         Assert.assertTrue(targetEncryptedFile.toFile().exists());
     }
@@ -131,10 +131,10 @@ public class EncryptionManagerTest {
         IvParameterSpec iv = EncryptionManager.generateIv(16);
 
         manager.encrypt(sourceFile, targetEncryptedFile, key, iv);
-        Thread.sleep(1000);
+        manager.getThread().join();
 
         manager.decrypt(targetEncryptedFile, targetDecryptedFile, key, iv);
-        Thread.sleep(1000);
+        manager.getThread().join();
 
         long result = Files.mismatch(sourceFile, targetDecryptedFile);
         Assert.assertEquals(-1L, result);
@@ -151,7 +151,7 @@ public class EncryptionManagerTest {
         IvParameterSpec iv = EncryptionManager.generateIv(16);
 
         manager.encrypt(sourceFile, blockingQueue, key, iv);
-        Thread.sleep(1000);
+        manager.getThread().join();
 
         Assert.assertFalse(blockingQueue.isEmpty());
     }
@@ -166,10 +166,10 @@ public class EncryptionManagerTest {
         IvParameterSpec iv = EncryptionManager.generateIv(16);
 
         manager.encrypt(sourceFile, blockingQueue, key, iv);
-        Thread.sleep(1000);
+        manager.getThread().join();
 
         manager.decrypt(blockingQueue, targetDecryptedFile, key, iv);
-        Thread.sleep(1000);
+        manager.getThread().join();
 
         Assert.assertTrue(blockingQueue.isEmpty());
         long result = Files.mismatch(sourceFile, targetDecryptedFile);
