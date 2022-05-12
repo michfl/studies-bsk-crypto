@@ -5,6 +5,7 @@ import lombok.Setter;
 
 import javax.crypto.*;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -137,7 +138,7 @@ public class EncryptionManager {
      * @param iv IV for encrypting
      * @return cipher text
      * @throws InvalidKeyException incorrect key passed, wrong format
-     * @throws IllegalBlockSizeException incorrect key passed, wrong format
+     * @throws IllegalBlockSizeException problem with block size
      * @throws BadPaddingException problem with padding
      * @throws InvalidAlgorithmParameterException problem with provided IV
      */
@@ -154,14 +155,46 @@ public class EncryptionManager {
      * @param key key for encryption
      * @return cipher text
      * @throws InvalidKeyException incorrect key passed, wrong format
-     * @throws IllegalBlockSizeException incorrect key passed, wrong format
+     * @throws IllegalBlockSizeException problem with block size
      * @throws BadPaddingException problem with padding
      */
     public byte[] encrypt(String text, Key key)
-            throws IllegalBlockSizeException, BadPaddingException,
-            InvalidKeyException {
+            throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
         return encrypt(Cipher.ENCRYPT_MODE, text.getBytes(), key);
+    }
+
+    /**
+     * Encrypts provided key.
+     * @param toEncrypt key to encrypt
+     * @param key key for encryption
+     * @return encrypted key in a byte array format
+     * @throws IllegalBlockSizeException problem with block size
+     * @throws BadPaddingException problem with padding
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
+    public byte[] encrypt(Key toEncrypt, Key key)
+            throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+
+        return encrypt(Cipher.ENCRYPT_MODE, toEncrypt.getEncoded(), key);
+    }
+
+    /**
+     * Decrypts key in a byte array format.
+     * @param toDecrypt key in a byte array format
+     * @param key key for decryption
+     * @param algorithm algorithm used for creation of original encrypted key
+     * @return decrypted key
+     * @throws IllegalBlockSizeException problem with block size
+     * @throws BadPaddingException problem with padding
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
+    public Key decrypt(byte[] toDecrypt, Key key, String algorithm)
+            throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+
+        byte[] decrypted = encrypt(Cipher.DECRYPT_MODE, toDecrypt, key);
+
+        return new SecretKeySpec(decrypted, 0, decrypted.length, algorithm);
     }
 
     /**
@@ -183,6 +216,15 @@ public class EncryptionManager {
         thread.start();
     }
 
+    /**
+     * Decrypts contents of a blocking queue to a file.
+     * @param source queue with encrypted data
+     * @param target path where decrypted file will be saved
+     * @param key key for decryption
+     * @param iv IV for decryption
+     * @throws InvalidAlgorithmParameterException problem with provided IV
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
     public void decrypt(BlockingQueue<byte[]> source, Path target, Key key, IvParameterSpec iv)
             throws InvalidAlgorithmParameterException, InvalidKeyException {
 
@@ -200,7 +242,7 @@ public class EncryptionManager {
      * @param iv IV for decrypting
      * @return plain text
      * @throws InvalidKeyException incorrect key passed, wrong format
-     * @throws IllegalBlockSizeException incorrect key passed, wrong format
+     * @throws IllegalBlockSizeException problem with block size
      * @throws BadPaddingException problem with padding
      * @throws InvalidAlgorithmParameterException problem with provided IV
      */
@@ -217,7 +259,7 @@ public class EncryptionManager {
      * @param key key for decryption
      * @return plain text
      * @throws InvalidKeyException incorrect key passed, wrong format
-     * @throws IllegalBlockSizeException incorrect key passed, wrong format
+     * @throws IllegalBlockSizeException problem with block size
      * @throws BadPaddingException problem with padding
      */
     public String decrypt(byte[] cipherText, Key key)

@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.*;
+import java.security.spec.ECField;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
@@ -174,5 +175,25 @@ public class EncryptionManagerTest {
         Assert.assertTrue(blockingQueue.isEmpty());
         long result = Files.mismatch(sourceFile, targetDecryptedFile);
         Assert.assertEquals(-1L, result);
+    }
+
+    @Test
+    public void Should_DecryptedKeyBeIdenticalToOriginal_When_PerformingKeyEncryptionAndDecryption()
+            throws NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException,
+            InvalidKeyException {
+
+        Key key = EncryptionManager.generateKey(Transformation.AES_CBC_PKCS5Padding.getKeySizes()[0],
+                Transformation.AES_CBC_PKCS5Padding.getAlgorithm());
+
+        transformation = Transformation.RSA_ECB_PKCS1Padding;
+        manager.setTransformation(transformation.getText());
+        KeyPair keyPair = EncryptionManager.generateKeyPair(transformation.getKeySizes()[1],
+                transformation.getAlgorithm());
+
+        byte[] encryptedKey = manager.encrypt(key, keyPair.getPublic());
+        Key decryptedKey = manager.decrypt(encryptedKey, keyPair.getPrivate(),
+                Transformation.AES_CBC_PKCS5Padding.getAlgorithm());
+
+        Assert.assertEquals(key, decryptedKey);
     }
 }
