@@ -21,6 +21,7 @@ public class TcpServerListener implements Runnable {
             manager.clientSocket = manager.serverSocket.accept();
             manager.out = new ObjectOutputStream(manager.clientSocket.getOutputStream());
             manager.in = new ObjectInputStream(manager.clientSocket.getInputStream());
+            manager.clientSocket.setSoTimeout(manager.getReceiveTimeout());
             manager.changeStatus(NetworkManager.Status.CONNECTED);
         } catch (IOException | NullPointerException e) {
             e.printStackTrace();

@@ -85,18 +85,27 @@ public interface NetworkManager {
     boolean isConnected();
 
     /**
+     * Sets the timeout on the client socket, which affects receive method.
+     * Persists during connections and reconnections.
+     * Set to 0 switch of the timeout.
+     * Is set to 0 by default.
+     * @param millis timeout is milliseconds
+     */
+    void setReceiveTimeout(int millis);
+
+    /**
      * Sends frame if connected.
-     * If sending frame was unsuccessful, checks connection.
+     * If sending frame was unsuccessful, disconnects.
      * @param frame frame to be sent
      * @return true if sent successfully, false otherwise
      */
     boolean send(Frame frame);
 
     /**
-     * Receives frame if connected, for a specified amount of time.
-     * If timeout reached, throws SocketTimeoutException.
+     * Receives frame if connected.
      * All data is written to provided frame object.
-     * If exception thrown, checks connection.
+     * If timeout reached, throws SocketTimeoutException.
+     * If other than SocketTimeoutException thrown, disconnects.
      * @param frame object for data to be written to
      * @return true if receive was successful, false otherwise
      */

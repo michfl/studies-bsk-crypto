@@ -10,8 +10,24 @@ import java.io.Serializable;
 public class Frame implements Serializable {
 
     public enum Type {
-        CONFIGURATION,
-        DATA
+
+        // Public key and username exchange
+        SESSION_INIT,
+
+        // Connection check
+        SESSION_CHECK,
+
+        // Symmetric key and symmetric cyphering algorithm info exchange
+        CYPHER_INIT,
+
+        // Simple text string message exchange
+        MESSAGE,
+
+        // File transfer initialization
+        TRANSFER_INIT,
+
+        // File data exchange
+        TRANSFER_DATA
     }
 
     public Type frameType;

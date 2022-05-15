@@ -11,7 +11,7 @@ import java.nio.file.attribute.FileOwnerAttributeView;
 /**
  * Class used for managing attributes associated with files.
  */
-public class FileInfo {
+public class FileAttrInfo {
 
     /**
      * Extracts file attributes and returns them as a JSON object.

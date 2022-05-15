@@ -10,6 +10,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +26,9 @@ public class TcpManager implements NetworkManager, Subject {
     ObjectInputStream in;
 
     ObjectOutputStream out;
+
+    @Getter
+    private int receiveTimeout;
 
     @Getter
     private Status status;
@@ -157,6 +162,18 @@ public class TcpManager implements NetworkManager, Subject {
     }
 
     @Override
+    public void setReceiveTimeout(int millis) {
+        if (clientSocket != null) {
+            try {
+                clientSocket.setSoTimeout(millis);
+                receiveTimeout = millis;
+            } catch (SocketException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
     public boolean send(Frame frame) {
         if (status != Status.CONNECTED) return false;
 
@@ -172,13 +189,15 @@ public class TcpManager implements NetworkManager, Subject {
     }
 
     @Override
-    public boolean receive(Frame frame) {
+    public boolean receive(Frame frame) throws SocketTimeoutException {
         if (status != Status.CONNECTED) return false;
 
         try {
             Frame received = (Frame) in.readObject();
             frame.frameType = received.frameType;
             frame.data = received.data;
+        } catch (SocketTimeoutException e) {
+            throw e;
         } catch (IOException e) {
             e.printStackTrace();
             disconnect();
@@ -193,6 +212,7 @@ public class TcpManager implements NetworkManager, Subject {
 
     public TcpManager() {
         this.status = Status.READY;
+        this.receiveTimeout = 0;
         this.observers = new ArrayList<>();
     }
 }
