@@ -3,22 +3,22 @@ package pl.edu.pg.eti.ksr.project.communication;
 import lombok.Getter;
 import lombok.Setter;
 import pl.edu.pg.eti.ksr.project.communication.data.Message;
+import pl.edu.pg.eti.ksr.project.communication.data.SessionData;
 import pl.edu.pg.eti.ksr.project.crypto.EncryptionManager;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.NetworkManager;
 import pl.edu.pg.eti.ksr.project.network.TcpManager;
 import pl.edu.pg.eti.ksr.project.network.data.CommunicationInfo;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
+import pl.edu.pg.eti.ksr.project.network.data.SessionInfo;
 import pl.edu.pg.eti.ksr.project.observer.Observer;
 import pl.edu.pg.eti.ksr.project.observer.Subject;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
-import java.nio.file.Path;
-import java.security.Key;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.Timestamp;
-import java.time.Instant;
+import java.security.*;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -73,22 +73,37 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
     PublicKey otherUserPublicKey;
 
     /**
+     * Transformation used in asymmetric key pair generation.
+     */
+    Transformation asymmetricTransformation;
+
+    /**
+     * True if communication is established.
+     */
+    boolean communicationEstablished;
+
+    /**
      * Session key used in symmetric cyphering of data.
      * Will be set after establishing new session.
      */
     Key sessionKey;
 
     /**
-     * Algorithm used in symmetric cyphering of data.
+     * Transformation used in symmetric cyphering of data.
      * Will be set after establishing new session.
      */
-    String sessionKeyAlgorithm;
+    Transformation symmetricTransformation;
 
     /**
      * IV used in symmetric cyphering of data.
      * Will be set after establishing new session.
      */
     IvParameterSpec sessionIV;
+
+    /**
+     * True if session is established.
+     */
+    boolean sessionEstablished;
 
     /**
      * Incoming messages queue.
@@ -184,6 +199,8 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
             startIncomingHandler();
         } else {
             stopIncomingHandler();
+            communicationEstablished = false;
+            sessionEstablished = false;
         }
     }
 
@@ -217,34 +234,127 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
 
     /**
      * Initiates communication by sending username, public key and challenge text to the other client.
-     * Make sure that encryption manager is set to an asymmetric algorithm to be used in key exchange.
+     * Make sure that provided algorithm is an asymmetric algorithm to be used in key exchange.
+     * @param transformation algorithm to be used in asymmetric cyphering
      * @throws CommunicationException when encryption transformation is not asymmetric
      */
-    public void initiateCommunication() throws CommunicationException {
-        if (!Objects.equals(encryptionManager.getTransformation().split("/")[0], "RSA")) {
+    public void initiateCommunication(Transformation transformation) throws CommunicationException {
+        if (!Objects.equals(transformation.getAlgorithm(), "RSA")) {
             throw new CommunicationException("Encryption transformation cannot be symmetric.");
+        }
+        if (!Objects.equals(userPublicKey.getAlgorithm(), transformation.getAlgorithm())) {
+            throw new CommunicationException("Provided transformation has different algorithm than one used " +
+                    "for public key generation");
         }
 
         CommunicationInfo info = CommunicationInfo.builder()
                 .username(username)
                 .userPublicKey(userPublicKey)
                 .num(0)
-                .asymmetricAlgorithm(encryptionManager.getTransformation())
                 .build();
         Frame frame = new Frame(Frame.Type.COMMUNICATION_INIT, info);
 
         tcpManager.send(frame);
     }
 
+    /**
+     * Sends communication-stop message to announce to the other client that current communication is no longer active.
+     */
+    public void stopCommunication() {
+        communicationEstablished = false;
+        sessionEstablished = false;
+
+        Frame frame = new Frame(Frame.Type.COMMUNICATION_STOP, null);
+
+        tcpManager.send(frame);
+    }
+
+    /**
+     * Initiates session by sending session info to the other client.
+     * Before sending generates session key and IV based on provided transformation.
+     * One communication can consist of multiple sessions with different parameters.
+     * @param transformation algorithm to be used in symmetric cyphering
+     * @throws CommunicationException when encryption transformation is not symmetric
+     * @throws NoSuchAlgorithmException provided incorrect algorithm
+     * @throws IllegalBlockSizeException problem with block size
+     * @throws BadPaddingException problem with padding
+     * @throws InvalidKeyException problem with key
+     * @throws NoSuchPaddingException problem with padding
+     */
+    public void initiateSession(Transformation transformation) throws CommunicationException, NoSuchAlgorithmException,
+            IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchPaddingException {
+        if (Objects.equals(transformation.getAlgorithm(), "RSA")) {
+            throw new CommunicationException("Encryption transformation must be symmetric.");
+        }
+        if (!communicationEstablished) return;
+
+        if (!Objects.equals(encryptionManager.getTransformation(), asymmetricTransformation.getText())) {
+            encryptionManager.setTransformation(asymmetricTransformation.getText());
+        }
+
+        sessionKey = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        sessionIV = EncryptionManager.generateIv(transformation.getBlockSize());
+        symmetricTransformation = transformation;
+
+        SessionInfo info = SessionInfo.builder()
+                .encryptedSessionKey(encryptionManager.encrypt(sessionKey, otherUserPublicKey))
+                .iv(sessionIV.getIV())
+                .transformation(symmetricTransformation)
+                .build();
+
+        Frame frame = new Frame(Frame.Type.SESSION_INIT, info);
+
+        tcpManager.send(frame);
+
+        sessionEstablished = true;
+    }
+
+    /**
+     * Sends text message to the other client.
+     * Uses established session info to perform text encryption.
+     * If no session has been established it will take no effect.
+     * @param message text to be sent
+     * @throws InvalidAlgorithmParameterException wrong algorithm parameters
+     * @throws IllegalBlockSizeException problem with block size
+     * @throws BadPaddingException problem with padding
+     * @throws InvalidKeyException problem with key
+     * @throws NoSuchPaddingException problem with padding
+     * @throws NoSuchAlgorithmException provided incorrect algorithm
+     */
+    public void sendMessage(String message) throws InvalidAlgorithmParameterException, IllegalBlockSizeException,
+            BadPaddingException, InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException {
+        if (!sessionEstablished) return;
+
+        if (!Objects.equals(encryptionManager.getTransformation(), symmetricTransformation.getText())) {
+            encryptionManager.setTransformation(symmetricTransformation.getText());
+        }
+
+        byte[] encMessage;
+
+        if (Objects.equals(symmetricTransformation.getMode(), "CBC")) {
+            encMessage = encryptionManager.encrypt(message, sessionKey, sessionIV);
+        } else {
+            encMessage = encryptionManager.encrypt(message, sessionKey);
+        }
+
+        Frame frame = new Frame(Frame.Type.MESSAGE, encMessage);
+
+        tcpManager.send(frame);
+    }
+
     public EncryptedTcpCommunicator(String username, PublicKey userPublicKey, PrivateKey userPrivateKey,
-                                    TcpManager tcpManager, EncryptionManager encryptionManager) {
+                                    Transformation asymmetricTransformation, TcpManager tcpManager,
+                                    EncryptionManager encryptionManager) {
         this.username = username;
         this.userPublicKey = userPublicKey;
         this.userPrivateKey = userPrivateKey;
+        this.asymmetricTransformation = asymmetricTransformation;
         this.tcpManager = tcpManager;
         this.encryptionManager = encryptionManager;
         this.running = new AtomicBoolean(false);
         this.messageQueue = new LinkedBlockingDeque<>();
         this.observers = new ConcurrentLinkedQueue<>();
+        this.communicationEstablished = false;
+        this.sessionEstablished = false;
     }
 }

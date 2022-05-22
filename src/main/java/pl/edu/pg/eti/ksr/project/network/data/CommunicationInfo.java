@@ -1,6 +1,7 @@
 package pl.edu.pg.eti.ksr.project.network.data;
 
 import lombok.*;
+import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 
 import javax.crypto.spec.IvParameterSpec;
 import java.io.Serializable;
@@ -43,9 +44,4 @@ public class CommunicationInfo implements Serializable {
      * Used for verification.
      */
     byte[] challengeResponse;
-
-    /**
-     * Asymmetric algorithm used to establish communication.
-     */
-    String asymmetricAlgorithm;
 }

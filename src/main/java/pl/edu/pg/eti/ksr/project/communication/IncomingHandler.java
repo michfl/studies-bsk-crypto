@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import pl.edu.pg.eti.ksr.project.communication.data.CommunicationData;
 import pl.edu.pg.eti.ksr.project.communication.data.Message;
+import pl.edu.pg.eti.ksr.project.communication.data.SessionData;
+import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.data.CommunicationInfo;
 import pl.edu.pg.eti.ksr.project.network.data.FileInfo;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
@@ -14,12 +16,10 @@ import pl.edu.pg.eti.ksr.project.network.data.SessionInfo;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
 import java.io.InterruptedIOException;
 import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
+import java.security.*;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -46,7 +46,6 @@ public class IncomingHandler implements Runnable {
     public void run() {
         Frame frame;
 
-        int commInitState = 1;
         String otherUsername = "";
         PublicKey otherPublicKey = null;
         String challenge = "";
@@ -66,24 +65,25 @@ public class IncomingHandler implements Runnable {
 
                             otherUsername = info.getUsername();
                             otherPublicKey = info.getUserPublicKey();
-                            communicator.encryptionManager.setTransformation(info.getAsymmetricAlgorithm());
+                            communicator.encryptionManager.setTransformation(
+                                    communicator.getAsymmetricTransformation().getText());
                             challenge = EncryptedTcpCommunicator.generateChallenge();
 
                             info.setUsername(communicator.username);
                             info.setUserPublicKey(communicator.userPublicKey);
                             info.setChallenge(challenge);
 
-                            info.setNum(commInitState);
-                            commInitState += 1;
+                            info.setNum(info.getNum() + 1);
 
                             frame.data = info;
                             communicator.tcpManager.send(frame);
 
-                        } else if (info.getNum() == commInitState && commInitState == 1) {
+                        } else if (info.getNum() == 1) {
 
                             otherUsername = info.getUsername();
                             otherPublicKey = info.getUserPublicKey();
-                            communicator.encryptionManager.setTransformation(info.getAsymmetricAlgorithm());
+                            communicator.encryptionManager.setTransformation(
+                                    communicator.getAsymmetricTransformation().getText());
                             challenge = EncryptedTcpCommunicator.generateChallenge();
 
                             info.setUsername(communicator.username);
@@ -92,20 +92,18 @@ public class IncomingHandler implements Runnable {
                                     .encrypt(info.getChallenge(), communicator.userPrivateKey));
                             info.setChallenge(challenge);
 
-                            info.setNum(commInitState + 1);
-                            commInitState += 2;
+                            info.setNum(info.getNum() + 1);
 
                             frame.data = info;
                             communicator.tcpManager.send(frame);
 
-                        } else if (info.getNum() == commInitState && commInitState == 2) {
+                        } else if (info.getNum() == 2) {
 
                             if (!Objects.equals(info.getUsername(), otherUsername) ||
                                     info.getUserPublicKey() != otherPublicKey ||
                                     !Objects.equals(communicator.encryptionManager
                                             .decrypt(info.getChallengeResponse(), otherPublicKey), challenge)) {
 
-                                commInitState = 1;
                                 otherUsername = "";
                                 otherPublicKey = null;
                                 challenge = "";
@@ -117,13 +115,12 @@ public class IncomingHandler implements Runnable {
                             info.setChallengeResponse(communicator.encryptionManager
                                     .encrypt(info.getChallenge(), communicator.userPrivateKey));
 
-                            info.setNum(commInitState + 1);
-                            commInitState += 2;
+                            info.setNum(info.getNum() + 1);
 
                             frame.data = info;
                             communicator.tcpManager.send(frame);
 
-                        } else if (info.getNum() == commInitState && commInitState == 3) {
+                        } else if (info.getNum() == 3) {
 
                             if (Objects.equals(info.getUsername(), otherUsername) &&
                                     info.getUserPublicKey() == otherPublicKey &&
@@ -132,7 +129,7 @@ public class IncomingHandler implements Runnable {
 
                                 info.setUsername(communicator.username);
                                 info.setUserPublicKey(communicator.userPublicKey);
-                                info.setNum(commInitState + 1);
+                                info.setNum(info.getNum() + 1);
 
                                 frame.data = info;
                                 communicator.tcpManager.send(frame);
@@ -141,16 +138,15 @@ public class IncomingHandler implements Runnable {
                             // the starting side of the handshake is done and confirmed
                             communicator.otherUsername = otherUsername;
                             communicator.otherUserPublicKey = otherPublicKey;
+                            communicator.communicationEstablished = true;
                             communicator.newMessage(Message.Type.COMMUNICATION,
-                                    new CommunicationData(otherUsername, otherPublicKey));
+                                    new CommunicationData(otherUsername));
 
-
-                            commInitState = 1;
                             otherUsername = "";
                             otherPublicKey = null;
                             challenge = "";
 
-                        } else if (info.getNum() == commInitState && commInitState == 4) {
+                        } else if (info.getNum() == 4) {
 
                             if (Objects.equals(info.getUsername(), otherUsername) &&
                                     info.getUserPublicKey() == otherPublicKey) {
@@ -158,28 +154,61 @@ public class IncomingHandler implements Runnable {
                                 // the receiving side of the handshake is done and confirmed
                                 communicator.otherUsername = otherUsername;
                                 communicator.otherUserPublicKey = otherPublicKey;
+                                communicator.communicationEstablished = true;
                                 communicator.newMessage(Message.Type.COMMUNICATION,
-                                        new CommunicationData(otherUsername, otherPublicKey));
+                                        new CommunicationData(otherUsername));
                             }
 
-                            commInitState = 1;
                             otherUsername = "";
                             otherPublicKey = null;
                             challenge = "";
-
                         }
                     }
 
                     case COMMUNICATION_STOP -> {
-
+                        communicator.newMessage(Message.Type.COMMUNICATION_STOP, null);
+                        communicator.communicationEstablished = false;
+                        communicator.sessionEstablished = false;
                     }
 
                     case SESSION_INIT -> {
+                        if (!communicator.communicationEstablished) continue;
+
                         SessionInfo info = (SessionInfo) frame.data;
+
+                        communicator.encryptionManager.setTransformation(
+                                communicator.asymmetricTransformation.getText());
+
+                        communicator.sessionKey = communicator.encryptionManager.decrypt(info.getEncryptedSessionKey(),
+                                communicator.userPrivateKey, info.getTransformation().getAlgorithm());
+                        communicator.symmetricTransformation = info.getTransformation();
+                        communicator.sessionIV = new IvParameterSpec(info.getIv());
+                        communicator.sessionEstablished = true;
+
+                        communicator.newMessage(Message.Type.SESSION, new SessionData(info.getTransformation()));
                     }
 
                     case MESSAGE -> {
-                        String message = (String) frame.data;
+                        if (!communicator.sessionEstablished) continue;
+
+                        if (!Objects.equals(communicator.encryptionManager.getTransformation(),
+                                communicator.symmetricTransformation.getText())) {
+
+                            communicator.encryptionManager.setTransformation(
+                                    communicator.symmetricTransformation.getText());
+                        }
+
+                        byte[] encMessage = (byte[]) frame.data;
+                        String message;
+
+                        if (Objects.equals(communicator.symmetricTransformation.getMode(), "CBC")) {
+                            message = communicator.encryptionManager.decrypt(
+                                    encMessage, communicator.sessionKey, communicator.sessionIV);
+                        } else {
+                            message = communicator.encryptionManager.decrypt(encMessage, communicator.sessionKey);
+                        }
+
+                        communicator.newMessage(Message.Type.MESSAGE, message);
                     }
 
                     case TRANSFER_INIT -> {
@@ -194,10 +223,9 @@ public class IncomingHandler implements Runnable {
             } catch (InterruptedIOException e) {
                 e.printStackTrace();
             } catch (NoSuchPaddingException | NoSuchAlgorithmException | IllegalBlockSizeException |
-                    BadPaddingException | InvalidKeyException e) {
+                    BadPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
 
                 e.printStackTrace();
-                commInitState = 1;
                 otherUsername = "";
                 otherPublicKey = null;
                 challenge = "";

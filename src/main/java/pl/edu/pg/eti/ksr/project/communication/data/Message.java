@@ -19,14 +19,23 @@ public class Message {
      */
     public enum Type {
 
+        // New communication established
         COMMUNICATION,
 
+        // Other client closed communication
+        COMMUNICATION_STOP,
+
+        // New session established
         SESSION,
 
+        // New text message
         MESSAGE,
 
-        FILE
+        // New file incoming
+        FILE,
 
+        // New file ready
+        FILE_READY
     }
 
     /**

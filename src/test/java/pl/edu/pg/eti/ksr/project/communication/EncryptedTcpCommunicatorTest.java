@@ -5,6 +5,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import pl.edu.pg.eti.ksr.project.communication.data.Message;
 import pl.edu.pg.eti.ksr.project.crypto.EncryptionManager;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.NetworkManager;
@@ -12,7 +13,11 @@ import pl.edu.pg.eti.ksr.project.network.TcpManager;
 import pl.edu.pg.eti.ksr.project.network.data.CommunicationInfo;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
@@ -44,15 +49,15 @@ public class EncryptedTcpCommunicatorTest {
         encryptionManager1 = new EncryptionManager(transformation.getText());
         encryptionManager2 = new EncryptionManager(transformation.getText());
 
-        keyPair1 = EncryptionManager.generateKeyPair(Transformation.RSA_ECB_PKCS1Padding.getKeySizes()[1],
+        keyPair1 = EncryptionManager.generateKeyPair(Transformation.RSA_ECB_PKCS1Padding.getKeySize(),
                 Transformation.RSA_ECB_PKCS1Padding.getAlgorithm());
-        keyPair2 = EncryptionManager.generateKeyPair(Transformation.RSA_ECB_PKCS1Padding.getKeySizes()[1],
+        keyPair2 = EncryptionManager.generateKeyPair(Transformation.RSA_ECB_PKCS1Padding.getKeySize(),
                 Transformation.RSA_ECB_PKCS1Padding.getAlgorithm());
 
         encryptedTcpCommunicator1 = new EncryptedTcpCommunicator(username1, keyPair1.getPublic(), keyPair1.getPrivate(),
-                tcpManager1, encryptionManager1);
+                Transformation.RSA_ECB_PKCS1Padding, tcpManager1, encryptionManager1);
         encryptedTcpCommunicator2 = new EncryptedTcpCommunicator(username2, keyPair2.getPublic(), keyPair2.getPrivate(),
-                tcpManager2, encryptionManager2);
+                Transformation.RSA_ECB_PKCS1Padding, tcpManager2, encryptionManager2);
     }
 
     @After
@@ -125,8 +130,8 @@ public class EncryptedTcpCommunicatorTest {
     }
 
     @Test
-    public void Should_ProperlyExchangeUsernamesAndPublicKeys_When_CommunicationInitFrameSent()
-            throws NoSuchPaddingException, NoSuchAlgorithmException, CommunicationException {
+    public void Should_ProperlyExchangeUsernamesAndPublicKeys_When_InitiateCommunicationMethodCalled()
+            throws CommunicationException {
         encryptedTcpCommunicator1.init();
         encryptedTcpCommunicator2.init();
 
@@ -138,14 +143,85 @@ public class EncryptedTcpCommunicatorTest {
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1IncomingHandlerIsAlive());
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2IncomingHandlerIsAlive());
 
-        encryptedTcpCommunicator1.getEncryptionManager()
-                .setTransformation(Transformation.RSA_ECB_PKCS1Padding.getText());
-
-        encryptedTcpCommunicator1.initiateCommunication();
+        encryptedTcpCommunicator1.initiateCommunication(Transformation.RSA_ECB_PKCS1Padding);
 
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1ReceivedCommInfo2());
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2ReceivedCommInfo1());
         Assert.assertEquals(1, encryptedTcpCommunicator1.getMessageQueue().size());
         Assert.assertEquals(1, encryptedTcpCommunicator2.getMessageQueue().size());
+    }
+
+    private Callable<Boolean> communicator1SessionEstablished() {
+        return () -> encryptedTcpCommunicator1.sessionEstablished;
+    }
+
+    private Callable<Boolean> communicator2SessionEstablished() {
+        return () -> encryptedTcpCommunicator2.sessionEstablished;
+    }
+
+    @Test
+    public void Should_ProperlyGenerateAndExchangeSessionInfo_When_InitiateSessionMethodCalled()
+            throws CommunicationException, IllegalBlockSizeException, NoSuchAlgorithmException, BadPaddingException,
+            InvalidKeyException, NoSuchPaddingException {
+        encryptedTcpCommunicator1.init();
+        encryptedTcpCommunicator2.init();
+
+        encryptedTcpCommunicator1.getTcpManager().listen();
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
+
+        encryptedTcpCommunicator2.getTcpManager().connect("localhost", NetworkManager.DEFAULT_PORT);
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager2HasStatusConnected());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1IncomingHandlerIsAlive());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2IncomingHandlerIsAlive());
+
+        encryptedTcpCommunicator1.initiateCommunication(Transformation.RSA_ECB_PKCS1Padding);
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1ReceivedCommInfo2());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2ReceivedCommInfo1());
+
+        encryptedTcpCommunicator1.initiateSession(Transformation.AES_CBC_PKCS5Padding);
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1SessionEstablished());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2SessionEstablished());
+
+        Assert.assertEquals(2, encryptedTcpCommunicator2.getMessageQueue().size());
+        Assert.assertEquals(encryptedTcpCommunicator1.getSessionKey(), encryptedTcpCommunicator2.getSessionKey());
+        Assert.assertArrayEquals(encryptedTcpCommunicator1.getSessionIV().getIV(),
+                encryptedTcpCommunicator2.getSessionIV().getIV());
+        Assert.assertEquals(encryptedTcpCommunicator1.getSymmetricTransformation(),
+                encryptedTcpCommunicator2.getSymmetricTransformation());
+    }
+
+    @Test
+    public void Should_ReceiveMessageWhenMessageSend_When_CommunicationAndSessionProperlyInitiated()
+            throws CommunicationException, IllegalBlockSizeException, NoSuchPaddingException, NoSuchAlgorithmException,
+            BadPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, InterruptedException {
+        encryptedTcpCommunicator1.init();
+        encryptedTcpCommunicator2.init();
+
+        encryptedTcpCommunicator1.getTcpManager().listen();
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
+
+        encryptedTcpCommunicator2.getTcpManager().connect("localhost", NetworkManager.DEFAULT_PORT);
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager2HasStatusConnected());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1IncomingHandlerIsAlive());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2IncomingHandlerIsAlive());
+
+        encryptedTcpCommunicator1.initiateCommunication(Transformation.RSA_ECB_PKCS1Padding);
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1ReceivedCommInfo2());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2ReceivedCommInfo1());
+
+        encryptedTcpCommunicator1.initiateSession(Transformation.AES_CBC_PKCS5Padding);
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1SessionEstablished());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2SessionEstablished());
+
+        encryptedTcpCommunicator1.getMessageQueue().clear();
+        encryptedTcpCommunicator2.getMessageQueue().clear();
+
+        String test = "test message";
+        encryptedTcpCommunicator1.sendMessage(test);
+
+        Message message = encryptedTcpCommunicator2.getMessageQueue().poll(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(message);
+        Assert.assertEquals(Message.Type.MESSAGE, message.messageType);
+        Assert.assertEquals(test, message.data);
     }
 }

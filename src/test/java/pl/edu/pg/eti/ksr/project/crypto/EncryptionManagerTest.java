@@ -54,8 +54,8 @@ public class EncryptionManagerTest {
 
         String text = "Example text";
 
-        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
-        IvParameterSpec iv = EncryptionManager.generateIv(16);
+        Key key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(transformation.getBlockSize());
 
         String cipherText = new String(manager.encrypt(text, key, iv), StandardCharsets.UTF_8);
         Assert.assertNotEquals(text, cipherText);
@@ -66,45 +66,159 @@ public class EncryptionManagerTest {
             throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException,
             IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
-        String text = "Example text";
+        /*
+        IMPORTANT
+
+        CBC must use IV
+        ECB cannot use IV
+
+        AES has 16 block size
+        DES and 3DES have 8 block size
+
+        When no padding mode used, data size must be a multiplicity of block size.
+         */
+
+        String text = "Example text    "; // 16 size for testing
         Key key;
+        KeyPair keyPair;
         IvParameterSpec iv;
         byte[] cipherText;
 
-        // AES algorithm | 16 block size | using IV
-        key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
-        iv = EncryptionManager.generateIv(16);
+        // AES algorithm | CBC | No padding | 16 block size | using IV
+        transformation = Transformation.AES_CBC_NoPadding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        iv = EncryptionManager.generateIv(transformation.getBlockSize());
         cipherText = manager.encrypt(text, key, iv);
-        String decipheredTextAES = manager.decrypt(cipherText, key, iv);
+        String decipheredTextAESCBCNoPadding = manager.decrypt(cipherText, key, iv);
 
-        // DES algorithm | 8 block size | using IV
+        // AES algorithm | CBC | PKCS5 Padding | 16 block size | using IV
+        transformation = Transformation.AES_CBC_PKCS5Padding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        iv = EncryptionManager.generateIv(transformation.getBlockSize());
+        cipherText = manager.encrypt(text, key, iv);
+        String decipheredTextAESCBCPKCS5Padding = manager.decrypt(cipherText, key, iv);
+
+        // AES algorithm | ECB | No padding | 16 block size | no IV
+        transformation = Transformation.AES_ECB_NoPadding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        cipherText = manager.encrypt(text, key);
+        String decipheredTextAESECBNoPadding = manager.decrypt(cipherText, key);
+
+        // AES algorithm | ECB | PKCS5 Padding | 16 block size | no IV
+        transformation = Transformation.AES_ECB_PKCS5Padding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        cipherText = manager.encrypt(text, key);
+        String decipheredTextAESECBPKCS5Padding = manager.decrypt(cipherText, key);
+
+
+        // DES algorithm | CBC | No padding | 8 block size | using IV
+        transformation = Transformation.DES_CBC_NoPadding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        iv = EncryptionManager.generateIv(transformation.getBlockSize());
+        cipherText = manager.encrypt(text, key, iv);
+        String decipheredTextDESCBCNoPadding = manager.decrypt(cipherText, key, iv);
+
+        // DES algorithm | CBC | PKCS5 Padding | 8 block size | using IV
         transformation = Transformation.DES_CBC_PKCS5Padding;
         manager.setTransformation(transformation.getText());
-        key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
-        iv = EncryptionManager.generateIv(8);
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        iv = EncryptionManager.generateIv(transformation.getBlockSize());
         cipherText = manager.encrypt(text, key, iv);
-        String decipheredTextDES = manager.decrypt(cipherText, key, iv);
+        String decipheredTextDESCBCPKCS5Padding = manager.decrypt(cipherText, key, iv);
 
-        // DESede algorithm | 8 block size | using IV
+        // DES algorithm | ECB | No padding | 8 block size | no IV
+        transformation = Transformation.DES_ECB_NoPadding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        cipherText = manager.encrypt(text, key);
+        String decipheredTextDESECBNoPadding = manager.decrypt(cipherText, key);
+
+        // DES algorithm | ECB | PKCS5 Padding | 8 block size | no IV
+        transformation = Transformation.DES_ECB_PKCS5Padding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        cipherText = manager.encrypt(text, key);
+        String decipheredTextDESECBPKCS5Padding = manager.decrypt(cipherText, key);
+
+
+        // DESede algorithm | CBC | No padding | 8 block size | using IV
+        transformation = Transformation.DESede_CBC_NoPadding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        iv = EncryptionManager.generateIv(transformation.getBlockSize());
+        cipherText = manager.encrypt(text, key, iv);
+        String decipheredTextDESedeCBCNoPadding = manager.decrypt(cipherText, key, iv);
+
+        // DESede algorithm | CBC | PKCS5 Padding | 8 block size | using IV
         transformation = Transformation.DESede_CBC_PKCS5Padding;
         manager.setTransformation(transformation.getText());
-        key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
-        iv = EncryptionManager.generateIv(8);
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        iv = EncryptionManager.generateIv(transformation.getBlockSize());
         cipherText = manager.encrypt(text, key, iv);
-        String decipheredTextDESede = manager.decrypt(cipherText, key, iv);
+        String decipheredTextDESedeCBCPKCS5Padding = manager.decrypt(cipherText, key, iv);
 
-        // RSA / DSA algorithm | not using IV | public and private keys
+        // DESede algorithm | ECB | No padding | 8 block size | no IV
+        transformation = Transformation.DESede_ECB_NoPadding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        cipherText = manager.encrypt(text, key);
+        String decipheredTextDESedeECBNoPadding = manager.decrypt(cipherText, key);
+
+        // DESede algorithm | ECB | PKCS5 Padding | 8 block size | no IV
+        transformation = Transformation.DESede_ECB_PKCS5Padding;
+        manager.setTransformation(transformation.getText());
+        key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        cipherText = manager.encrypt(text, key);
+        String decipheredTextDESedeECBPKCS5Padding = manager.decrypt(cipherText, key);
+
+
+        // RSA / DSA algorithm | ECB | PKCS1 Padding | no IV | public and private keys
         transformation = Transformation.RSA_ECB_PKCS1Padding;
         manager.setTransformation(transformation.getText());
-        KeyPair keyPair = EncryptionManager.generateKeyPair(transformation.getKeySizes()[1],
+        keyPair = EncryptionManager.generateKeyPair(transformation.getKeySize(),
                 transformation.getAlgorithm());
         cipherText = manager.encrypt(text, keyPair.getPublic());
-        String decipheredTextRSA = manager.decrypt(cipherText, keyPair.getPrivate());
+        String decipheredTextRSAECBPKCS1Padding = manager.decrypt(cipherText, keyPair.getPrivate());
 
-        Assert.assertEquals(text, decipheredTextAES);
-        Assert.assertEquals(text, decipheredTextDES);
-        Assert.assertEquals(text, decipheredTextDESede);
-        Assert.assertEquals(text, decipheredTextRSA);
+        // RSA / DSA algorithm | ECB | 1AndMGF1 Padding | no IV | public and private keys
+        transformation = Transformation.RSA_ECB_OAEPWithSHA_1AndMGF1Padding;
+        manager.setTransformation(transformation.getText());
+        keyPair = EncryptionManager.generateKeyPair(transformation.getKeySize(),
+                transformation.getAlgorithm());
+        cipherText = manager.encrypt(text, keyPair.getPublic());
+        String decipheredTextRSAECB1AndMGF1Padding = manager.decrypt(cipherText, keyPair.getPrivate());
+
+        // RSA / DSA algorithm | ECB | 256AndMGF1 Padding | no IV | public and private keys
+        transformation = Transformation.RSA_ECB_OAEPWithSHA_256AndMGF1Padding;
+        manager.setTransformation(transformation.getText());
+        keyPair = EncryptionManager.generateKeyPair(transformation.getKeySize(),
+                transformation.getAlgorithm());
+        cipherText = manager.encrypt(text, keyPair.getPublic());
+        String decipheredTextRSAECB256AndMGF1Padding = manager.decrypt(cipherText, keyPair.getPrivate());
+
+        Assert.assertEquals(text, decipheredTextAESCBCNoPadding);
+        Assert.assertEquals(text, decipheredTextAESCBCPKCS5Padding);
+        Assert.assertEquals(text, decipheredTextAESECBNoPadding);
+        Assert.assertEquals(text, decipheredTextAESECBPKCS5Padding);
+
+        Assert.assertEquals(text, decipheredTextDESCBCNoPadding);
+        Assert.assertEquals(text, decipheredTextDESCBCPKCS5Padding);
+        Assert.assertEquals(text, decipheredTextDESECBNoPadding);
+        Assert.assertEquals(text, decipheredTextDESECBPKCS5Padding);
+
+        Assert.assertEquals(text, decipheredTextDESedeCBCNoPadding);
+        Assert.assertEquals(text, decipheredTextDESedeCBCPKCS5Padding);
+        Assert.assertEquals(text, decipheredTextDESedeECBNoPadding);
+        Assert.assertEquals(text, decipheredTextDESedeECBPKCS5Padding);
+
+        Assert.assertEquals(text, decipheredTextRSAECBPKCS1Padding);
+        Assert.assertEquals(text, decipheredTextRSAECB1AndMGF1Padding);
+        Assert.assertEquals(text, decipheredTextRSAECB256AndMGF1Padding);
     }
 
     @Test
@@ -112,8 +226,8 @@ public class EncryptionManagerTest {
             throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
             InterruptedException, IOException {
 
-        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
-        IvParameterSpec iv = EncryptionManager.generateIv(16);
+        Key key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(transformation.getBlockSize());
 
         manager.encrypt(sourceFile, targetEncryptedFile, key, iv, Files.size(sourceFile));
         manager.getEncryptorThread().join();
@@ -126,8 +240,8 @@ public class EncryptionManagerTest {
             throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
             InterruptedException, IOException {
 
-        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
-        IvParameterSpec iv = EncryptionManager.generateIv(16);
+        Key key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(transformation.getBlockSize());
 
         manager.encrypt(sourceFile, targetEncryptedFile, key, iv, Files.size(sourceFile));
         manager.getEncryptorThread().join();
@@ -146,8 +260,8 @@ public class EncryptionManagerTest {
 
         BlockingQueue<byte[]> blockingQueue = new LinkedBlockingDeque<>(1024);
 
-        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
-        IvParameterSpec iv = EncryptionManager.generateIv(16);
+        Key key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(transformation.getBlockSize());
 
         manager.encrypt(sourceFile, blockingQueue, key, iv, Files.size(sourceFile));
         manager.getEncryptorThread().join();
@@ -161,8 +275,8 @@ public class EncryptionManagerTest {
             InterruptedException, IOException {
         BlockingQueue<byte[]> blockingQueue = new LinkedBlockingDeque<>(1024);
 
-        Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
-        IvParameterSpec iv = EncryptionManager.generateIv(16);
+        Key key = EncryptionManager.generateKey(transformation.getKeySize(), transformation.getAlgorithm());
+        IvParameterSpec iv = EncryptionManager.generateIv(transformation.getBlockSize());
 
         manager.encrypt(sourceFile, blockingQueue, key, iv, Files.size(sourceFile));
         manager.getEncryptorThread().join();
@@ -180,12 +294,12 @@ public class EncryptionManagerTest {
             throws NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException,
             InvalidKeyException {
 
-        Key key = EncryptionManager.generateKey(Transformation.AES_CBC_PKCS5Padding.getKeySizes()[0],
+        Key key = EncryptionManager.generateKey(Transformation.AES_CBC_PKCS5Padding.getKeySize(),
                 Transformation.AES_CBC_PKCS5Padding.getAlgorithm());
 
         transformation = Transformation.RSA_ECB_PKCS1Padding;
         manager.setTransformation(transformation.getText());
-        KeyPair keyPair = EncryptionManager.generateKeyPair(transformation.getKeySizes()[1],
+        KeyPair keyPair = EncryptionManager.generateKeyPair(transformation.getKeySize(),
                 transformation.getAlgorithm());
 
         byte[] encryptedKey = manager.encrypt(key, keyPair.getPublic());

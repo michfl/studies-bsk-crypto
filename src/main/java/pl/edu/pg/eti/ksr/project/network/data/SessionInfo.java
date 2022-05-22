@@ -1,6 +1,7 @@
 package pl.edu.pg.eti.ksr.project.network.data;
 
 import lombok.*;
+import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 
 import javax.crypto.spec.IvParameterSpec;
 import java.io.Serializable;
@@ -24,11 +25,11 @@ public class SessionInfo implements Serializable {
     /**
      * IV used in data cyphering.
      */
-    IvParameterSpec iv;
+    byte[] iv;
 
     /**
-     * Algorithm used in data cyphering.
+     * Transformation used in data cyphering.
      */
-    String algorithm;
+    Transformation transformation;
 
 }

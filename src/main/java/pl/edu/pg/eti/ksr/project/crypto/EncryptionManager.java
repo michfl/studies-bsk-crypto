@@ -144,6 +144,25 @@ public class EncryptionManager implements Subject {
     }
 
     /**
+     * Encrypts provided file and outputs to another file.
+     * @param source path to a file to be encrypted
+     * @param target path to a file that will consist ciphered input file
+     * @param key key for encryption
+     * @param fileSize size of a file in bytes
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
+    public void encrypt(Path source, Path target, Key key, long fileSize)
+            throws InvalidKeyException {
+
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+
+        running.set(true);
+        encryptorThread = new Thread(
+                new FileToFileEncryptor(cipher, source, target, running, fileSize, this));
+        encryptorThread.start();
+    }
+
+    /**
      * Encrypts provided file and outputs to provided queue.
      * @param source path to a file to be encrypted
      * @param target queue to which encrypted data will be inserted
@@ -157,6 +176,25 @@ public class EncryptionManager implements Subject {
             throws InvalidAlgorithmParameterException, InvalidKeyException {
 
         cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+
+        running.set(true);
+        encryptorThread = new Thread(
+                new FileToBlockingQueueEncryptor(cipher, source, target, running, fileSize, this));
+        encryptorThread.start();
+    }
+
+    /**
+     * Encrypts provided file and outputs to provided queue.
+     * @param source path to a file to be encrypted
+     * @param target queue to which encrypted data will be inserted
+     * @param key key for encryption
+     * @param fileSize size of a file in bytes
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
+    public void encrypt(Path source, BlockingQueue<byte[]> target, Key key, long fileSize)
+            throws InvalidKeyException {
+
+        cipher.init(Cipher.ENCRYPT_MODE, key);
 
         running.set(true);
         encryptorThread = new Thread(
@@ -252,6 +290,25 @@ public class EncryptionManager implements Subject {
     }
 
     /**
+     * Decrypts provided file and outputs to another file.
+     * @param source path to a file to be decrypted
+     * @param target path to a file that will consist decrypted input file
+     * @param key key for decryption
+     * @param fileSize size of an original file in bytes
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
+    public void decrypt(Path source, Path target, Key key, long fileSize)
+            throws InvalidKeyException {
+
+        cipher.init(Cipher.DECRYPT_MODE, key);
+
+        running.set(true);
+        encryptorThread = new Thread(
+                new FileToFileEncryptor(cipher, source, target, running, fileSize, this));
+        encryptorThread.start();
+    }
+
+    /**
      * Decrypts contents of a blocking queue to a file.
      * @param source queue with encrypted data
      * @param target path where decrypted file will be saved
@@ -265,6 +322,25 @@ public class EncryptionManager implements Subject {
             throws InvalidAlgorithmParameterException, InvalidKeyException {
 
         cipher.init(Cipher.DECRYPT_MODE, key, iv);
+
+        running.set(true);
+        encryptorThread = new Thread(
+                new BlockingQueueToFileEncryptor(cipher, source, target, running, fileSize, this));
+        encryptorThread.start();
+    }
+
+    /**
+     * Decrypts contents of a blocking queue to a file.
+     * @param source queue with encrypted data
+     * @param target path where decrypted file will be saved
+     * @param key key for decryption
+     * @param fileSize size of an original file in bytes
+     * @throws InvalidKeyException incorrect key passed, wrong format
+     */
+    public void decrypt(BlockingQueue<byte[]> source, Path target, Key key, long fileSize)
+            throws InvalidKeyException {
+
+        cipher.init(Cipher.DECRYPT_MODE, key);
 
         running.set(true);
         encryptorThread = new Thread(

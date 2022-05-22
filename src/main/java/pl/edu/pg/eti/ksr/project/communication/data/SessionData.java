@@ -6,18 +6,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 
-
 /**
- * Message communication data.
+ * Message session data.
  */
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
-public class CommunicationData {
+public class SessionData {
 
     /**
-     * Other user username.
+     * Transformation to be used in symmetric data exchange.
      */
-    String username;
+    Transformation transformation;
 }
