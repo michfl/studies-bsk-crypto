@@ -1,25 +1,29 @@
 package pl.edu.pg.eti.ksr.project.crypto;
 
 import lombok.Getter;
-import lombok.Setter;
+import pl.edu.pg.eti.ksr.project.observer.Observer;
+import pl.edu.pg.eti.ksr.project.observer.Subject;
 
 import javax.crypto.*;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.*;
-import java.util.Random;
-import java.util.concurrent.BlockingDeque;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Manager for all encryption and decryption operations.
  */
-public class EncryptionManager {
+public class EncryptionManager implements Subject {
+
+    /**
+     * List of all observers subscribing to this object.
+     */
+    private final Queue<Observer> observers;
 
     /**
      * String representation of transformation used in initialization of Cipher object.
@@ -43,7 +47,32 @@ public class EncryptionManager {
      * Reference to the currently running thread.
      */
     @Getter
-    private Thread thread;
+    private Thread encryptorThread;
+
+    @Override
+    public void attach(Observer observer) {
+        this.observers.add(observer);
+    }
+
+    @Override
+    public void detach(Observer observer) {
+        this.observers.remove(observer);
+    }
+
+    @Override
+    public void notifyObs(Object o) {
+        for (Observer observer : this.observers) {
+            observer.update(o);
+        }
+    }
+
+    /**
+     * Internal method used for notifying observers on the state of encryption / decryption.
+     * @param state fractional number between [0, 1]
+     */
+    void publishEncryptionState(double state) {
+        notifyObs(state);
+    }
 
     /**
      * Sets new transformation for next operations.
@@ -99,17 +128,19 @@ public class EncryptionManager {
      * @param target path to a file that will consist ciphered input file
      * @param key key for encryption
      * @param iv IV for encrypting
+     * @param fileSize size of a file in bytes
      * @throws InvalidAlgorithmParameterException problem with provided IV
      * @throws InvalidKeyException incorrect key passed, wrong format
      */
-    public void encrypt(Path source, Path target, Key key, IvParameterSpec iv)
+    public void encrypt(Path source, Path target, Key key, IvParameterSpec iv, long fileSize)
             throws InvalidAlgorithmParameterException, InvalidKeyException {
 
         cipher.init(Cipher.ENCRYPT_MODE, key, iv);
 
         running.set(true);
-        thread = new Thread(new FileToFileEncryptor(cipher, source, target, running));
-        thread.start();
+        encryptorThread = new Thread(
+                new FileToFileEncryptor(cipher, source, target, running, fileSize, this));
+        encryptorThread.start();
     }
 
     /**
@@ -118,17 +149,19 @@ public class EncryptionManager {
      * @param target queue to which encrypted data will be inserted
      * @param key key for encryption
      * @param iv IV for encrypting
+     * @param fileSize size of a file in bytes
      * @throws InvalidAlgorithmParameterException problem with provided IV
      * @throws InvalidKeyException incorrect key passed, wrong format
      */
-    public void encrypt(Path source, BlockingQueue<byte[]> target, Key key, IvParameterSpec iv)
+    public void encrypt(Path source, BlockingQueue<byte[]> target, Key key, IvParameterSpec iv, long fileSize)
             throws InvalidAlgorithmParameterException, InvalidKeyException {
 
         cipher.init(Cipher.ENCRYPT_MODE, key, iv);
 
         running.set(true);
-        thread = new Thread(new FileToBlockingQueueEncryptor(cipher, source, target, running));
-        thread.start();
+        encryptorThread = new Thread(
+                new FileToBlockingQueueEncryptor(cipher, source, target, running, fileSize, this));
+        encryptorThread.start();
     }
 
     /**
@@ -203,17 +236,19 @@ public class EncryptionManager {
      * @param target path to a file that will consist decrypted input file
      * @param key key for decryption
      * @param iv IV for decrypting
+     * @param fileSize size of an original file in bytes
      * @throws InvalidAlgorithmParameterException problem with provided IV
      * @throws InvalidKeyException incorrect key passed, wrong format
      */
-    public void decrypt(Path source, Path target, Key key, IvParameterSpec iv)
+    public void decrypt(Path source, Path target, Key key, IvParameterSpec iv, long fileSize)
             throws InvalidAlgorithmParameterException, InvalidKeyException {
 
         cipher.init(Cipher.DECRYPT_MODE, key, iv);
 
         running.set(true);
-        thread = new Thread(new FileToFileEncryptor(cipher, source, target, running));
-        thread.start();
+        encryptorThread = new Thread(
+                new FileToFileEncryptor(cipher, source, target, running, fileSize, this));
+        encryptorThread.start();
     }
 
     /**
@@ -222,17 +257,19 @@ public class EncryptionManager {
      * @param target path where decrypted file will be saved
      * @param key key for decryption
      * @param iv IV for decryption
+     * @param fileSize size of an original file in bytes
      * @throws InvalidAlgorithmParameterException problem with provided IV
      * @throws InvalidKeyException incorrect key passed, wrong format
      */
-    public void decrypt(BlockingQueue<byte[]> source, Path target, Key key, IvParameterSpec iv)
+    public void decrypt(BlockingQueue<byte[]> source, Path target, Key key, IvParameterSpec iv, long fileSize)
             throws InvalidAlgorithmParameterException, InvalidKeyException {
 
         cipher.init(Cipher.DECRYPT_MODE, key, iv);
 
         running.set(true);
-        thread = new Thread(new BlockingQueueToFileEncryptor(cipher, source, target, running));
-        thread.start();
+        encryptorThread = new Thread(
+                new BlockingQueueToFileEncryptor(cipher, source, target, running, fileSize, this));
+        encryptorThread.start();
     }
 
     /**
@@ -274,7 +311,7 @@ public class EncryptionManager {
      */
     public void stopCurrentWork() {
         running.set(false);
-        if (thread != null && thread.isAlive()) thread.interrupt();
+        if (encryptorThread != null && encryptorThread.isAlive()) encryptorThread.interrupt();
     }
 
     /**
@@ -325,6 +362,7 @@ public class EncryptionManager {
         this.cipher = Cipher.getInstance(transformation);
         this.transformation = transformation;
         this.running = new AtomicBoolean(false);
-        this.thread = null;
+        this.encryptorThread = null;
+        this.observers = new ConcurrentLinkedQueue<>();
     }
 }

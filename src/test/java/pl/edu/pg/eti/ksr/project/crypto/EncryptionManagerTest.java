@@ -10,13 +10,11 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.*;
-import java.security.spec.ECField;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
@@ -112,13 +110,13 @@ public class EncryptionManagerTest {
     @Test
     public void Should_CreateEncryptedFileOnTheSpecifiedPath_When_EncryptingToFile()
             throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
-            InterruptedException {
+            InterruptedException, IOException {
 
         Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
         IvParameterSpec iv = EncryptionManager.generateIv(16);
 
-        manager.encrypt(sourceFile, targetEncryptedFile, key, iv);
-        manager.getThread().join();
+        manager.encrypt(sourceFile, targetEncryptedFile, key, iv, Files.size(sourceFile));
+        manager.getEncryptorThread().join();
 
         Assert.assertTrue(targetEncryptedFile.toFile().exists());
     }
@@ -131,11 +129,11 @@ public class EncryptionManagerTest {
         Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
         IvParameterSpec iv = EncryptionManager.generateIv(16);
 
-        manager.encrypt(sourceFile, targetEncryptedFile, key, iv);
-        manager.getThread().join();
+        manager.encrypt(sourceFile, targetEncryptedFile, key, iv, Files.size(sourceFile));
+        manager.getEncryptorThread().join();
 
-        manager.decrypt(targetEncryptedFile, targetDecryptedFile, key, iv);
-        manager.getThread().join();
+        manager.decrypt(targetEncryptedFile, targetDecryptedFile, key, iv, Files.size(sourceFile));
+        manager.getEncryptorThread().join();
 
         long result = Files.mismatch(sourceFile, targetDecryptedFile);
         Assert.assertEquals(-1L, result);
@@ -144,15 +142,15 @@ public class EncryptionManagerTest {
     @Test
     public void Should_AddCipheredDataToQueue_When_PerformingFileEncryptionToQueue()
             throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
-            InterruptedException {
+            InterruptedException, IOException {
 
         BlockingQueue<byte[]> blockingQueue = new LinkedBlockingDeque<>(1024);
 
         Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
         IvParameterSpec iv = EncryptionManager.generateIv(16);
 
-        manager.encrypt(sourceFile, blockingQueue, key, iv);
-        manager.getThread().join();
+        manager.encrypt(sourceFile, blockingQueue, key, iv, Files.size(sourceFile));
+        manager.getEncryptorThread().join();
 
         Assert.assertFalse(blockingQueue.isEmpty());
     }
@@ -166,11 +164,11 @@ public class EncryptionManagerTest {
         Key key = EncryptionManager.generateKey(transformation.getKeySizes()[0], transformation.getAlgorithm());
         IvParameterSpec iv = EncryptionManager.generateIv(16);
 
-        manager.encrypt(sourceFile, blockingQueue, key, iv);
-        manager.getThread().join();
+        manager.encrypt(sourceFile, blockingQueue, key, iv, Files.size(sourceFile));
+        manager.getEncryptorThread().join();
 
-        manager.decrypt(blockingQueue, targetDecryptedFile, key, iv);
-        manager.getThread().join();
+        manager.decrypt(blockingQueue, targetDecryptedFile, key, iv, Files.size(sourceFile));
+        manager.getEncryptorThread().join();
 
         Assert.assertTrue(blockingQueue.isEmpty());
         long result = Files.mismatch(sourceFile, targetDecryptedFile);

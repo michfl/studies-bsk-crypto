@@ -49,10 +49,23 @@ public class FileToFileEncryptor implements Runnable {
      */
     private AtomicBoolean running;
 
+    /**
+     * Size of a file in bytes.
+     */
+    private long fileSize;
+
+    /**
+     * Reference to the calling class.
+     * Used to publish encryption state.
+     */
+    private EncryptionManager manager;
+
     @Override
     public void run() {
         FileInputStream in;
         CipherOutputStream out;
+        long total = 0;
+
         try {
             in = new FileInputStream(input.toFile());
             out = new CipherOutputStream(new FileOutputStream(output.toFile()), cipher);
@@ -65,6 +78,9 @@ public class FileToFileEncryptor implements Runnable {
         int count;
         try {
             while ((count = in.read(buffer)) > 0 && running.get()) {
+                total = Math.min(total + count, fileSize);
+                manager.publishEncryptionState((double)total / fileSize);
+
                 out.write(buffer, 0, count);
             }
         } catch (IOException e) {

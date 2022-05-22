@@ -2,6 +2,8 @@ package pl.edu.pg.eti.ksr.project.network;
 
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
 
+import java.io.InterruptedIOException;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 
 /**
@@ -85,15 +87,6 @@ public interface NetworkManager {
     boolean isConnected();
 
     /**
-     * Sets the timeout on the client socket, which affects receive method.
-     * Persists during connections and reconnections.
-     * Set to 0 switch of the timeout.
-     * Is set to 0 by default.
-     * @param millis timeout is milliseconds
-     */
-    void setReceiveTimeout(int millis);
-
-    /**
      * Sends frame if connected.
      * If sending frame was unsuccessful, disconnects.
      * @param frame frame to be sent
@@ -104,11 +97,13 @@ public interface NetworkManager {
     /**
      * Receives frame if connected.
      * All data is written to provided frame object.
-     * If timeout reached, throws SocketTimeoutException.
-     * If other than SocketTimeoutException thrown, disconnects.
+     * If timeout reached, throws InterruptedIOException.
+     * If other than InterruptedIOException thrown, disconnects.
+     * @throws InterruptedIOException when read operation interrupted
+     * @throws SocketException when a problem with the socket occurred
      * @param frame object for data to be written to
      * @return true if receive was successful, false otherwise
      */
-    boolean receive(Frame frame) throws SocketTimeoutException;
+    boolean receive(Frame frame) throws InterruptedIOException, SocketException;
 
 }

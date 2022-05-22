@@ -8,11 +8,17 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
+/**
+ * New connection listener thread.
+ */
 @AllArgsConstructor
 @Getter
 @Setter
 public class TcpServerListener implements Runnable {
 
+    /**
+     * Reference to the tcp manager object.
+     */
     private TcpManager manager;
 
     @Override
@@ -21,7 +27,6 @@ public class TcpServerListener implements Runnable {
             manager.clientSocket = manager.serverSocket.accept();
             manager.out = new ObjectOutputStream(manager.clientSocket.getOutputStream());
             manager.in = new ObjectInputStream(manager.clientSocket.getInputStream());
-            manager.clientSocket.setSoTimeout(manager.getReceiveTimeout());
             manager.changeStatus(NetworkManager.Status.CONNECTED);
         } catch (IOException | NullPointerException e) {
             e.printStackTrace();

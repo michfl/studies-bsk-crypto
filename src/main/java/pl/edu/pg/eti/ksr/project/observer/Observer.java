@@ -7,9 +7,8 @@ package pl.edu.pg.eti.ksr.project.observer;
 public interface Observer {
 
     /**
-     * Method called on all observers when event of a given type appears.
-     * @param type type of the event
+     * Method called on all observers when event appears.
      * @param o data related to event
      */
-    void update(Subject.NewsType type, Object o);
+    void update(Object o);
 }

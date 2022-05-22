@@ -1,47 +1,33 @@
 package pl.edu.pg.eti.ksr.project.network.data;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import javax.crypto.spec.IvParameterSpec;
 import java.io.Serializable;
-import java.security.PublicKey;
 
 /**
- * Session data object.
- * Consists all session information.
  * Used during session initialization.
+ * Consists of encrypted symmetric session key and cypher algorithm information.
  */
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
+@Builder
 public class SessionInfo implements Serializable {
 
     /**
-     * Username to be associated with incoming messages.
-     */
-    String username;
-
-    /**
-     * User public key.
-     */
-    PublicKey userPublicKey;
-
-    /**
-     * Symmetric session key to be used in later data encryption.
+     * Symmetric session key used in data cyphering.
      */
     byte[] encryptedSessionKey;
 
     /**
-     * IV to be used in later data encryption.
+     * IV used in data cyphering.
      */
     IvParameterSpec iv;
 
     /**
-     * Algorithm used
+     * Algorithm used in data cyphering.
      */
     String algorithm;
 

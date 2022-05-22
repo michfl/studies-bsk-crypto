@@ -10,6 +10,8 @@ import pl.edu.pg.eti.ksr.project.network.data.Frame;
 import pl.edu.pg.eti.ksr.project.observer.Observer;
 import pl.edu.pg.eti.ksr.project.observer.Subject;
 
+import java.io.InterruptedIOException;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -133,7 +135,7 @@ public class TcpManagerTest {
     }
 
     @Test
-    public void Should_ReceiveData_When_DataIsSent() throws SocketTimeoutException {
+    public void Should_ReceiveData_When_DataIsSent() throws InterruptedIOException, SocketException {
         manager1.listen();
 
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
@@ -160,21 +162,6 @@ public class TcpManagerTest {
         manager1.attach(observer);
         manager1.listen();
         Mockito.verify(observer)
-                .update(Subject.NewsType.STATE_CHANGE, NetworkManager.Status.LISTENING);
-    }
-
-    @Test(expected = SocketTimeoutException.class)
-    public void Should_ThrowSocketTimeoutException_When_TimeoutReachedOnReceiveMethod() throws SocketTimeoutException {
-        manager1.listen();
-
-        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
-
-        manager2.connect("localhost", NetworkManager.DEFAULT_PORT);
-
-        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager2HasStatusConnected());
-
-        manager1.setReceiveTimeout(100);
-
-        manager1.receive(new Frame());
+                .update(NetworkManager.Status.LISTENING);
     }
 }

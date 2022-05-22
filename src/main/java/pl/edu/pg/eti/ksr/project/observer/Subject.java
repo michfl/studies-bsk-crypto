@@ -7,18 +7,6 @@ package pl.edu.pg.eti.ksr.project.observer;
 public interface Subject {
 
     /**
-     * All possible news types.
-     */
-    enum NewsType {
-
-        // State of the TCP manager has been changed
-        STATE_CHANGE,
-
-        // New message has been received and added to the communication buffer
-        NEW_MESSAGE
-    }
-
-    /**
      * Subscribing to a news agency.
      * @param observer new subscriber
      */
@@ -32,8 +20,7 @@ public interface Subject {
 
     /**
      * Notify all subscribers about an event.
-     * @param type type of the event
      * @param o information correlated to the event
      */
-    void notifyObs(NewsType type, Object o);
+    void notifyObs(Object o);
 }

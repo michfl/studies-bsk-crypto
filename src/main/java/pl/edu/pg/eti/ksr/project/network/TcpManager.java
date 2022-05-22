@@ -6,6 +6,7 @@ import pl.edu.pg.eti.ksr.project.observer.Observer;
 import pl.edu.pg.eti.ksr.project.observer.Subject;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
@@ -14,29 +15,59 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
+/**
+ * Network manager implementation using tcp sockets.
+ */
 public class TcpManager implements NetworkManager, Subject {
 
-    private final List<Observer> observers;
+    /**
+     * List of all observers subscribing to this object.
+     */
+    private final Queue<Observer> observers;
 
+    /**
+     * Server socket used to listen for new connections.
+     */
     ServerSocket serverSocket;
 
+    /**
+     * Client socket used for data exchange after connection is established.
+     */
     Socket clientSocket;
 
+    /**
+     * Client socket input stream.
+     */
     ObjectInputStream in;
 
+    /**
+     * Client socket output stream.
+     */
     ObjectOutputStream out;
 
-    @Getter
-    private int receiveTimeout;
-
+    /**
+     * Current status of the manager.
+     */
     @Getter
     private Status status;
 
+    /**
+     * New connection listener thread.
+     */
+    @Getter
+    private Thread listenerThread;
+
+    /**
+     * Internal method used for changing manager status and publishing new status to the observers.
+     * @param status new status
+     */
     void changeStatus(Status status) {
         if (status != this.status) {
             this.status = status;
-            notifyObs(Subject.NewsType.STATE_CHANGE, this.status);
+            notifyObs(this.status);
         }
     }
 
@@ -51,9 +82,9 @@ public class TcpManager implements NetworkManager, Subject {
     }
 
     @Override
-    public void notifyObs(NewsType type, Object o) {
+    public void notifyObs(Object o) {
         for (Observer observer : this.observers) {
-            observer.update(type, o);
+            observer.update(o);
         }
     }
 
@@ -75,7 +106,8 @@ public class TcpManager implements NetworkManager, Subject {
         try {
             serverSocket = new ServerSocket(port);
 
-            new Thread(new TcpServerListener(this)).start();
+            listenerThread = new Thread(new TcpServerListener(this));
+            listenerThread.start();
 
             changeStatus(Status.LISTENING);
 
@@ -162,18 +194,6 @@ public class TcpManager implements NetworkManager, Subject {
     }
 
     @Override
-    public void setReceiveTimeout(int millis) {
-        if (clientSocket != null) {
-            try {
-                clientSocket.setSoTimeout(millis);
-                receiveTimeout = millis;
-            } catch (SocketException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    @Override
     public boolean send(Frame frame) {
         if (status != Status.CONNECTED) return false;
 
@@ -189,14 +209,14 @@ public class TcpManager implements NetworkManager, Subject {
     }
 
     @Override
-    public boolean receive(Frame frame) throws SocketTimeoutException {
+    public boolean receive(Frame frame) throws InterruptedIOException, SocketException {
         if (status != Status.CONNECTED) return false;
 
         try {
             Frame received = (Frame) in.readObject();
             frame.frameType = received.frameType;
             frame.data = received.data;
-        } catch (SocketTimeoutException e) {
+        } catch (InterruptedIOException | SocketException e) {
             throw e;
         } catch (IOException e) {
             e.printStackTrace();
@@ -212,7 +232,6 @@ public class TcpManager implements NetworkManager, Subject {
 
     public TcpManager() {
         this.status = Status.READY;
-        this.receiveTimeout = 0;
-        this.observers = new ArrayList<>();
+        this.observers = new ConcurrentLinkedQueue<>();
     }
 }

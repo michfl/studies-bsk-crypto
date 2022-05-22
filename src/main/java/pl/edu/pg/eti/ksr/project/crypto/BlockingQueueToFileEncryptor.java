@@ -50,9 +50,22 @@ public class BlockingQueueToFileEncryptor implements Runnable {
      */
     private AtomicBoolean running;
 
+    /**
+     * Size of a file in bytes.
+     */
+    private long fileSize;
+
+    /**
+     * Reference to the calling class.
+     * Used to publish encryption state.
+     */
+    private EncryptionManager manager;
+
     @Override
     public void run() {
         CipherOutputStream out;
+        long total = 0;
+
         try {
             out = new CipherOutputStream(new FileOutputStream(output.toFile()), cipher);
         } catch (FileNotFoundException e) {
@@ -65,6 +78,9 @@ public class BlockingQueueToFileEncryptor implements Runnable {
             while (running.get()) {
                 buffer = queue.take();
                 if (buffer.length == 0) break; // stop condition met
+
+                total = Math.min(total + buffer.length, fileSize);
+                manager.publishEncryptionState((double)total / fileSize);
 
                 out.write(buffer, 0, buffer.length);
             }
