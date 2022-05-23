@@ -222,12 +222,35 @@ public class IncomingHandler implements Runnable {
                         if (communicator.cyphering) continue;
 
                         FileInfo info = (FileInfo) frame.data;
+
+                        if (!Objects.equals(communicator.encryptionManager.getTransformation(),
+                                communicator.symmetricTransformation.getText())) {
+
+                            communicator.encryptionManager.setTransformation(
+                                    communicator.symmetricTransformation.getText());
+                        }
+
+                        String originalFileName;
+                        long originalFileSize;
+
+                        if (Objects.equals(communicator.symmetricTransformation.getMode(), "CBC")) {
+                            originalFileName = communicator.encryptionManager.decrypt(info.getFileName(),
+                                    communicator.sessionKey, communicator.sessionIV);
+                            originalFileSize = Long.parseLong(communicator.encryptionManager.decrypt(info.getFileSize(),
+                                    communicator.sessionKey, communicator.sessionIV));
+                        } else {
+                            originalFileName = communicator.encryptionManager.decrypt(info.getFileName(),
+                                    communicator.sessionKey);
+                            originalFileSize = Long.parseLong(communicator.encryptionManager.decrypt(info.getFileSize(),
+                                    communicator.sessionKey));
+                        }
+
                         String filePath;
                         String newFileName;
 
-                        if (new File(communicator.savedFilesPath + info.getFileName()).exists()) {
+                        if (new File(communicator.savedFilesPath + originalFileName).exists()) {
                             int i = 0;
-                            String[] fileNameParts = info.getFileName().split("\\.");
+                            String[] fileNameParts = originalFileName.split("\\.");
                             String name = fileNameParts[0];
 
                             do {
@@ -239,28 +262,21 @@ public class IncomingHandler implements Runnable {
                             filePath = communicator.savedFilesPath + String.join(".", fileNameParts);
                             newFileName = String.join(".", fileNameParts);
                         } else {
-                            filePath = communicator.savedFilesPath + info.getFileName();
-                            newFileName = info.getFileName();
+                            filePath = communicator.savedFilesPath + originalFileName;
+                            newFileName = originalFileName;
                         }
 
-                        FileData fileData = new FileData(info.getFileName(), newFileName, filePath);
+                        FileData fileData = new FileData(originalFileName, newFileName, filePath);
                         communicator.latestFileData = fileData;
                         communicator.cyphering = true;
                         communicator.filePartQueue.clear();
 
-                        if (!Objects.equals(communicator.encryptionManager.getTransformation(),
-                                communicator.symmetricTransformation.getText())) {
-
-                            communicator.encryptionManager.setTransformation(
-                                    communicator.symmetricTransformation.getText());
-                        }
-
                         if (Objects.equals(communicator.symmetricTransformation.getMode(), "CBC")) {
                             communicator.encryptionManager.decrypt(communicator.filePartQueue, Path.of(filePath),
-                                    communicator.sessionKey, communicator.sessionIV, info.getFileSize());
+                                    communicator.sessionKey, communicator.sessionIV, originalFileSize);
                         } else {
                             communicator.encryptionManager.decrypt(communicator.filePartQueue, Path.of(filePath),
-                                    communicator.sessionKey, info.getFileSize());
+                                    communicator.sessionKey, originalFileSize);
                         }
 
                         communicator.newMessage(Message.Type.FILE, fileData);

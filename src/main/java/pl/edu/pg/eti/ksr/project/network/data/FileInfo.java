@@ -18,12 +18,12 @@ import java.io.Serializable;
 public class FileInfo implements Serializable {
 
     /**
-     * Original file name.
+     * Encrypted original file name.
      */
-    String fileName;
+    byte[] fileName;
 
     /**
-     * Original file size.
+     * Encrypted original file size.
      */
-    long fileSize;
+    byte[] fileSize;
 }

@@ -398,26 +398,37 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
      * @throws NoSuchAlgorithmException problem with chosen transformation
      * @throws InvalidAlgorithmParameterException wrong algorithm parameters
      * @throws InvalidKeyException problem with key
+     * @throws IllegalBlockSizeException problem with block size
+     * @throws BadPaddingException problem with padding
      */
     public void send(Path pathToFile) throws CommunicationException, IOException, NoSuchPaddingException,
-            NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException {
+            NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
+            IllegalBlockSizeException, BadPaddingException {
         if (cyphering) {
             throw new CommunicationException("Cannot initiate another transfer during ongoing cyphering process.");
         }
         if (!sessionEstablished) return;
 
+        if (!Objects.equals(encryptionManager.getTransformation(), symmetricTransformation.getText())) {
+            encryptionManager.setTransformation(symmetricTransformation.getText());
+        }
+
         long fileSize = Files.size(pathToFile);
         String fileName = pathToFile.getFileName().toString();
-        FileInfo fileInfo = new FileInfo(fileName, fileSize);
+
+        FileInfo fileInfo;
+        if (Objects.equals(symmetricTransformation.getMode(), "CBC")) {
+            fileInfo = new FileInfo(encryptionManager.encrypt(fileName, sessionKey, sessionIV),
+                    encryptionManager.encrypt(String.valueOf(fileSize), sessionKey, sessionIV));
+        } else {
+            fileInfo = new FileInfo(encryptionManager.encrypt(fileName, sessionKey),
+                    encryptionManager.encrypt(String.valueOf(fileSize), sessionKey));
+        }
 
         tcpManager.send(new Frame(Frame.Type.TRANSFER_INIT, fileInfo));
 
         cyphering = true;
         filePartQueue.clear();
-
-        if (!Objects.equals(encryptionManager.getTransformation(), symmetricTransformation.getText())) {
-            encryptionManager.setTransformation(symmetricTransformation.getText());
-        }
 
         cyphering = true;
         if (Objects.equals(symmetricTransformation.getMode(), "CBC")) {
