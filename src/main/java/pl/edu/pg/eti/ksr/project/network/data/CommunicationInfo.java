@@ -1,14 +1,12 @@
 package pl.edu.pg.eti.ksr.project.network.data;
 
 import lombok.*;
-import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 
-import javax.crypto.spec.IvParameterSpec;
 import java.io.Serializable;
 import java.security.PublicKey;
 
 /**
- * Communication data object.
+ * Communication info object.
  * Consists all information needed to establish communication.
  */
 @AllArgsConstructor

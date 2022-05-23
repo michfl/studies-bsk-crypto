@@ -2,8 +2,8 @@ package pl.edu.pg.eti.ksr.project.communication.data;
 
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
-import java.security.Timestamp;
 import java.util.Date;
 
 /**
@@ -12,6 +12,7 @@ import java.util.Date;
  */
 @AllArgsConstructor
 @NoArgsConstructor
+@ToString
 public class Message {
 
     /**

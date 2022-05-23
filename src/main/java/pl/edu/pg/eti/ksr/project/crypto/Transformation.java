@@ -2,6 +2,8 @@ package pl.edu.pg.eti.ksr.project.crypto;
 
 import lombok.Getter;
 
+import java.util.Objects;
+
 /**
  * Supported Cipher transformations.
  * (key size in bits)
@@ -26,23 +28,61 @@ public enum Transformation {
     RSA_ECB_OAEPWithSHA_1AndMGF1Padding("RSA/ECB/OAEPWithSHA-1AndMGF1Padding", 0, 2048),
     RSA_ECB_OAEPWithSHA_256AndMGF1Padding("RSA/ECB/OAEPWithSHA-256AndMGF1Padding", 0, 2048);
 
+    /**
+     * Text representation of transformation in a format recognisable by crypto.
+     */
     @Getter
     private final String text;
 
+    /**
+     * Block size used by transformation.
+     */
     @Getter
     private final int blockSize;
 
+    /**
+     * Key size used in transformation.
+     */
     @Getter
     private final int keySize;
 
+    /**
+     * Finds transformation associated to provided text.
+     * @param text transformation text representation
+     * @return associated transformation, null if not found
+     */
+    public static Transformation fromText(String text) {
+        for (Transformation transformation : Transformation.values()) {
+            if (Objects.equals(transformation.text, text)) {
+                return transformation;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Gets algorithm part of transformation text representation.
+     * e.g. "AES"
+     * @return algorithm string
+     */
     public String getAlgorithm() {
         return text.split("/")[0];
     }
 
+    /**
+     * Gets mode part of transformation text representation.
+     * e.g. "CBC"
+     * @return mode string
+     */
     public String getMode() {
         return text.split("/")[1];
     }
 
+    /**
+     * Gets padding part of transformation text representation.
+     * e.g. "PKCS5Padding"
+     * @return padding string
+     */
     public String getPadding() {
         return text.split("/")[2];
     }

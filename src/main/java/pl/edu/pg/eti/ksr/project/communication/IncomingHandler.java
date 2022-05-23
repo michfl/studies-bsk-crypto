@@ -5,9 +5,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import pl.edu.pg.eti.ksr.project.communication.data.CommunicationData;
+import pl.edu.pg.eti.ksr.project.communication.data.FileData;
 import pl.edu.pg.eti.ksr.project.communication.data.Message;
 import pl.edu.pg.eti.ksr.project.communication.data.SessionData;
-import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.data.CommunicationInfo;
 import pl.edu.pg.eti.ksr.project.network.data.FileInfo;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
@@ -17,9 +17,14 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
+import java.io.File;
 import java.io.InterruptedIOException;
 import java.net.SocketException;
-import java.security.*;
+import java.nio.file.Path;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -169,10 +174,12 @@ public class IncomingHandler implements Runnable {
                         communicator.newMessage(Message.Type.COMMUNICATION_STOP, null);
                         communicator.communicationEstablished = false;
                         communicator.sessionEstablished = false;
+                        if (communicator.cyphering) communicator.stopCyphering();
                     }
 
                     case SESSION_INIT -> {
                         if (!communicator.communicationEstablished) continue;
+                        if (communicator.cyphering) continue;
 
                         SessionInfo info = (SessionInfo) frame.data;
 
@@ -212,11 +219,64 @@ public class IncomingHandler implements Runnable {
                     }
 
                     case TRANSFER_INIT -> {
+                        if (communicator.cyphering) continue;
+
                         FileInfo info = (FileInfo) frame.data;
+                        String filePath;
+                        String newFileName;
+
+                        if (new File(communicator.savedFilesPath + info.getFileName()).exists()) {
+                            int i = 0;
+                            String[] fileNameParts = info.getFileName().split("\\.");
+                            String name = fileNameParts[0];
+
+                            do {
+                                i++;
+                                fileNameParts[0] = name + "_" + i;
+                            } while (new File(communicator.savedFilesPath + String.join(".",
+                                    fileNameParts)).exists());
+
+                            filePath = communicator.savedFilesPath + String.join(".", fileNameParts);
+                            newFileName = String.join(".", fileNameParts);
+                        } else {
+                            filePath = communicator.savedFilesPath + info.getFileName();
+                            newFileName = info.getFileName();
+                        }
+
+                        FileData fileData = new FileData(info.getFileName(), newFileName, filePath);
+                        communicator.latestFileData = fileData;
+                        communicator.cyphering = true;
+                        communicator.filePartQueue.clear();
+
+                        if (!Objects.equals(communicator.encryptionManager.getTransformation(),
+                                communicator.symmetricTransformation.getText())) {
+
+                            communicator.encryptionManager.setTransformation(
+                                    communicator.symmetricTransformation.getText());
+                        }
+
+                        if (Objects.equals(communicator.symmetricTransformation.getMode(), "CBC")) {
+                            communicator.encryptionManager.decrypt(communicator.filePartQueue, Path.of(filePath),
+                                    communicator.sessionKey, communicator.sessionIV, info.getFileSize());
+                        } else {
+                            communicator.encryptionManager.decrypt(communicator.filePartQueue, Path.of(filePath),
+                                    communicator.sessionKey, info.getFileSize());
+                        }
+
+                        communicator.newMessage(Message.Type.FILE, fileData);
                     }
 
                     case TRANSFER_DATA -> {
+                        if (!communicator.cyphering) continue;
+
                         byte[] data = (byte[]) frame.data;
+                        communicator.filePartQueue.put(data);
+
+                        if (data.length == 0) {
+                            communicator.encryptionManager.getEncryptorThread().join();
+                            communicator.newMessage(Message.Type.FILE_READY, null);
+                            communicator.cyphering = false;
+                        }
                     }
 
                 }

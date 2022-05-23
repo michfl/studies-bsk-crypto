@@ -1,9 +1,6 @@
 package pl.edu.pg.eti.ksr.project.communication.data;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 
 /**
@@ -13,6 +10,7 @@ import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 @AllArgsConstructor
 @Getter
 @Setter
+@ToString
 public class SessionData {
 
     /**

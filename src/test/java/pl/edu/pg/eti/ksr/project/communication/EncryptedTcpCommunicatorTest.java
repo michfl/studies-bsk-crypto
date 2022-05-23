@@ -5,17 +5,20 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import pl.edu.pg.eti.ksr.project.communication.data.FileData;
 import pl.edu.pg.eti.ksr.project.communication.data.Message;
 import pl.edu.pg.eti.ksr.project.crypto.EncryptionManager;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.NetworkManager;
 import pl.edu.pg.eti.ksr.project.network.TcpManager;
-import pl.edu.pg.eti.ksr.project.network.data.CommunicationInfo;
-import pl.edu.pg.eti.ksr.project.network.data.Frame;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
@@ -35,6 +38,10 @@ public class EncryptedTcpCommunicatorTest {
     private KeyPair keyPair1;
     private KeyPair keyPair2;
 
+    private final String savedFilesPath = "./src/test/resources/";
+
+    private final Path sourceFile = Path.of("./src/test/resources/test.txt");
+    private final Path targetDecryptedFile = Path.of("./src/test/resources/test_1.txt");
 
     private EncryptedTcpCommunicator encryptedTcpCommunicator1;
     private EncryptedTcpCommunicator encryptedTcpCommunicator2;
@@ -54,10 +61,10 @@ public class EncryptedTcpCommunicatorTest {
         keyPair2 = EncryptionManager.generateKeyPair(Transformation.RSA_ECB_PKCS1Padding.getKeySize(),
                 Transformation.RSA_ECB_PKCS1Padding.getAlgorithm());
 
-        encryptedTcpCommunicator1 = new EncryptedTcpCommunicator(username1, keyPair1.getPublic(), keyPair1.getPrivate(),
-                Transformation.RSA_ECB_PKCS1Padding, tcpManager1, encryptionManager1);
-        encryptedTcpCommunicator2 = new EncryptedTcpCommunicator(username2, keyPair2.getPublic(), keyPair2.getPrivate(),
-                Transformation.RSA_ECB_PKCS1Padding, tcpManager2, encryptionManager2);
+        encryptedTcpCommunicator1 = new EncryptedTcpCommunicator(savedFilesPath, username1, keyPair1.getPublic(),
+                keyPair1.getPrivate(), Transformation.RSA_ECB_PKCS1Padding, tcpManager1, encryptionManager1);
+        encryptedTcpCommunicator2 = new EncryptedTcpCommunicator(savedFilesPath, username2, keyPair2.getPublic(),
+                keyPair2.getPrivate(), Transformation.RSA_ECB_PKCS1Padding, tcpManager2, encryptionManager2);
     }
 
     @After
@@ -70,6 +77,9 @@ public class EncryptedTcpCommunicatorTest {
 
         encryptedTcpCommunicator1.close();
         encryptedTcpCommunicator2.close();
+
+        File trgDecrypted = targetDecryptedFile.toFile();
+        if (trgDecrypted.exists()) trgDecrypted.delete();
     }
 
     private Callable<Boolean> communicator1IncomingHandlerIsAlive() {
@@ -143,7 +153,7 @@ public class EncryptedTcpCommunicatorTest {
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1IncomingHandlerIsAlive());
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2IncomingHandlerIsAlive());
 
-        encryptedTcpCommunicator1.initiateCommunication(Transformation.RSA_ECB_PKCS1Padding);
+        encryptedTcpCommunicator1.initiateCommunication();
 
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1ReceivedCommInfo2());
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2ReceivedCommInfo1());
@@ -174,7 +184,7 @@ public class EncryptedTcpCommunicatorTest {
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1IncomingHandlerIsAlive());
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2IncomingHandlerIsAlive());
 
-        encryptedTcpCommunicator1.initiateCommunication(Transformation.RSA_ECB_PKCS1Padding);
+        encryptedTcpCommunicator1.initiateCommunication();
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1ReceivedCommInfo2());
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2ReceivedCommInfo1());
 
@@ -205,7 +215,7 @@ public class EncryptedTcpCommunicatorTest {
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1IncomingHandlerIsAlive());
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2IncomingHandlerIsAlive());
 
-        encryptedTcpCommunicator1.initiateCommunication(Transformation.RSA_ECB_PKCS1Padding);
+        encryptedTcpCommunicator1.initiateCommunication();
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1ReceivedCommInfo2());
         Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2ReceivedCommInfo1());
 
@@ -217,11 +227,58 @@ public class EncryptedTcpCommunicatorTest {
         encryptedTcpCommunicator2.getMessageQueue().clear();
 
         String test = "test message";
-        encryptedTcpCommunicator1.sendMessage(test);
+        encryptedTcpCommunicator1.send(test);
 
         Message message = encryptedTcpCommunicator2.getMessageQueue().poll(5, TimeUnit.SECONDS);
         Assert.assertNotNull(message);
         Assert.assertEquals(Message.Type.MESSAGE, message.messageType);
         Assert.assertEquals(test, message.data);
+    }
+
+    @Test
+    public void Should_ReceivedFileBeIdenticalToSent_When_PerformingFileTransferBetweenTwoCommunicators()
+            throws CommunicationException, IllegalBlockSizeException, NoSuchPaddingException, NoSuchAlgorithmException,
+            BadPaddingException, InvalidKeyException, InterruptedException, InvalidAlgorithmParameterException,
+            IOException {
+
+        encryptedTcpCommunicator1.init();
+        encryptedTcpCommunicator2.init();
+
+        encryptedTcpCommunicator1.getTcpManager().listen();
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager1HasStatusListening());
+
+        encryptedTcpCommunicator2.getTcpManager().connect("localhost", NetworkManager.DEFAULT_PORT);
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(manager2HasStatusConnected());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1IncomingHandlerIsAlive());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2IncomingHandlerIsAlive());
+
+        encryptedTcpCommunicator1.initiateCommunication();
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1ReceivedCommInfo2());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2ReceivedCommInfo1());
+
+        encryptedTcpCommunicator1.initiateSession(Transformation.AES_CBC_PKCS5Padding);
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator1SessionEstablished());
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(communicator2SessionEstablished());
+
+        encryptedTcpCommunicator1.getMessageQueue().clear();
+        encryptedTcpCommunicator2.getMessageQueue().clear();
+
+        encryptedTcpCommunicator2.send(sourceFile);
+
+        Message messageFile = encryptedTcpCommunicator1.getMessageQueue().poll(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(messageFile);
+        Assert.assertEquals(Message.Type.FILE, messageFile.messageType);
+
+        Message messageFileReady = encryptedTcpCommunicator1.getMessageQueue().poll(5, TimeUnit.SECONDS);
+        Assert.assertNotNull(messageFileReady);
+        Assert.assertEquals(Message.Type.FILE_READY, messageFileReady.messageType);
+
+        Assert.assertTrue(new File(((FileData)messageFile.data).getFilePath()).exists());
+        long result = Files.mismatch(sourceFile, targetDecryptedFile);
+        Assert.assertEquals(-1L, result);
+
+        Assert.assertFalse(encryptedTcpCommunicator2.getFileSender().isAlive());
+        Assert.assertFalse(encryptedTcpCommunicator1.cyphering);
+        Assert.assertFalse(encryptedTcpCommunicator2.cyphering);
     }
 }

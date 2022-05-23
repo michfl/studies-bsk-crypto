@@ -1,7 +1,6 @@
 package pl.edu.pg.eti.ksr.project.network.data;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;

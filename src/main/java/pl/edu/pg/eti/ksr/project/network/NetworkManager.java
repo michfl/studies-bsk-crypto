@@ -4,7 +4,6 @@ import pl.edu.pg.eti.ksr.project.network.data.Frame;
 
 import java.io.InterruptedIOException;
 import java.net.SocketException;
-import java.net.SocketTimeoutException;
 
 /**
  * Basic functionality of Network Manager.

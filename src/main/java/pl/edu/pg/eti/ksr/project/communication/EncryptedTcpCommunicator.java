@@ -2,13 +2,14 @@ package pl.edu.pg.eti.ksr.project.communication;
 
 import lombok.Getter;
 import lombok.Setter;
+import pl.edu.pg.eti.ksr.project.communication.data.FileData;
 import pl.edu.pg.eti.ksr.project.communication.data.Message;
-import pl.edu.pg.eti.ksr.project.communication.data.SessionData;
 import pl.edu.pg.eti.ksr.project.crypto.EncryptionManager;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.NetworkManager;
 import pl.edu.pg.eti.ksr.project.network.TcpManager;
 import pl.edu.pg.eti.ksr.project.network.data.CommunicationInfo;
+import pl.edu.pg.eti.ksr.project.network.data.FileInfo;
 import pl.edu.pg.eti.ksr.project.network.data.Frame;
 import pl.edu.pg.eti.ksr.project.network.data.SessionInfo;
 import pl.edu.pg.eti.ksr.project.observer.Observer;
@@ -18,8 +19,14 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.*;
-import java.util.*;
+import java.util.Date;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -43,6 +50,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Getter
 public class EncryptedTcpCommunicator implements Observer, Subject {
+
+    /**
+     * Path to a directory where received files will be stored.
+     * Should end with '/', e.g. ".../directory/"
+     */
+    String savedFilesPath;
 
     /**
      * Username of this client.
@@ -111,6 +124,27 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
     BlockingQueue<Message> messageQueue;
 
     /**
+     * Queue consisting received file data for decryption.
+     */
+    BlockingQueue<byte[]> filePartQueue;
+
+    /**
+     * Object consisting latest received file data.
+     * Will be set after initiation of file transfer.
+     */
+    FileData latestFileData;
+
+    /**
+     * True if currently in process of file decryption or encryption.
+     */
+    boolean cyphering;
+
+    /**
+     * Reference to the encrypted file sender thread.
+     */
+    private Thread fileSender;
+
+    /**
      * Reference to the tcp manager used for data exchange.
      */
     @Setter
@@ -167,6 +201,16 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
     }
 
     /**
+     * Stop current cyphering work.
+     */
+    public void stopCyphering() {
+        encryptionManager.stopCurrentWork();
+        if (fileSender != null && fileSender.isAlive()) fileSender.interrupt();
+        filePartQueue.clear();
+        cyphering = false;
+    }
+
+    /**
      * Used for communicator initialization.
      * After init incoming handler will be started automatically whenever connection is established
      * and stop when connection is lost.
@@ -184,6 +228,7 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
      */
     public void close() {
         tcpManager.detach(this);
+        stopCyphering();
         stopIncomingHandler();
     }
 
@@ -199,6 +244,7 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
             startIncomingHandler();
         } else {
             stopIncomingHandler();
+            stopCyphering();
             communicationEstablished = false;
             sessionEstablished = false;
         }
@@ -235,16 +281,11 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
     /**
      * Initiates communication by sending username, public key and challenge text to the other client.
      * Make sure that provided algorithm is an asymmetric algorithm to be used in key exchange.
-     * @param transformation algorithm to be used in asymmetric cyphering
-     * @throws CommunicationException when encryption transformation is not asymmetric
+     * @throws CommunicationException when called during ongoing cyphering operation
      */
-    public void initiateCommunication(Transformation transformation) throws CommunicationException {
-        if (!Objects.equals(transformation.getAlgorithm(), "RSA")) {
-            throw new CommunicationException("Encryption transformation cannot be symmetric.");
-        }
-        if (!Objects.equals(userPublicKey.getAlgorithm(), transformation.getAlgorithm())) {
-            throw new CommunicationException("Provided transformation has different algorithm than one used " +
-                    "for public key generation");
+    public void initiateCommunication() throws CommunicationException {
+        if (cyphering) {
+            throw new CommunicationException("Cannot initiate session during ongoing cyphering process.");
         }
 
         CommunicationInfo info = CommunicationInfo.builder()
@@ -274,7 +315,7 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
      * Before sending generates session key and IV based on provided transformation.
      * One communication can consist of multiple sessions with different parameters.
      * @param transformation algorithm to be used in symmetric cyphering
-     * @throws CommunicationException when encryption transformation is not symmetric
+     * @throws CommunicationException when called during ongoing cyphering operation
      * @throws NoSuchAlgorithmException provided incorrect algorithm
      * @throws IllegalBlockSizeException problem with block size
      * @throws BadPaddingException problem with padding
@@ -283,8 +324,8 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
      */
     public void initiateSession(Transformation transformation) throws CommunicationException, NoSuchAlgorithmException,
             IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchPaddingException {
-        if (Objects.equals(transformation.getAlgorithm(), "RSA")) {
-            throw new CommunicationException("Encryption transformation must be symmetric.");
+        if (cyphering) {
+            throw new CommunicationException("Cannot initiate session during ongoing cyphering process.");
         }
         if (!communicationEstablished) return;
 
@@ -321,7 +362,7 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
      * @throws NoSuchPaddingException problem with padding
      * @throws NoSuchAlgorithmException provided incorrect algorithm
      */
-    public void sendMessage(String message) throws InvalidAlgorithmParameterException, IllegalBlockSizeException,
+    public void send(String message) throws InvalidAlgorithmParameterException, IllegalBlockSizeException,
             BadPaddingException, InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException {
         if (!sessionEstablished) return;
 
@@ -342,9 +383,57 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
         tcpManager.send(frame);
     }
 
-    public EncryptedTcpCommunicator(String username, PublicKey userPublicKey, PrivateKey userPrivateKey,
-                                    Transformation asymmetricTransformation, TcpManager tcpManager,
-                                    EncryptionManager encryptionManager) {
+    /**
+     * Initiates file transfer and starts file encryption and sending threads.
+     * Used for sending files to the other client.
+     *
+     * NOTE: Before transfer process completes (cyphering flag set to false) or is cancelled (stopCyphering)
+     *       it is not possible to initiate new session or change cyphering options.
+     *       Changing cyphering transformation during transfer process will result in cyphering exception.
+     *
+     * @param pathToFile file to be encrypted and send
+     * @throws CommunicationException when trying to invoke before previous transfer has ended
+     * @throws IOException provided incorrect file path
+     * @throws NoSuchPaddingException problem with padding
+     * @throws NoSuchAlgorithmException problem with chosen transformation
+     * @throws InvalidAlgorithmParameterException wrong algorithm parameters
+     * @throws InvalidKeyException problem with key
+     */
+    public void send(Path pathToFile) throws CommunicationException, IOException, NoSuchPaddingException,
+            NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException {
+        if (cyphering) {
+            throw new CommunicationException("Cannot initiate another transfer during ongoing cyphering process.");
+        }
+        if (!sessionEstablished) return;
+
+        long fileSize = Files.size(pathToFile);
+        String fileName = pathToFile.getFileName().toString();
+        FileInfo fileInfo = new FileInfo(fileName, fileSize);
+
+        tcpManager.send(new Frame(Frame.Type.TRANSFER_INIT, fileInfo));
+
+        cyphering = true;
+        filePartQueue.clear();
+
+        if (!Objects.equals(encryptionManager.getTransformation(), symmetricTransformation.getText())) {
+            encryptionManager.setTransformation(symmetricTransformation.getText());
+        }
+
+        cyphering = true;
+        if (Objects.equals(symmetricTransformation.getMode(), "CBC")) {
+            encryptionManager.encrypt(pathToFile, filePartQueue, sessionKey, sessionIV, fileSize);
+        } else {
+            encryptionManager.encrypt(pathToFile, filePartQueue, sessionKey, fileSize);
+        }
+
+        fileSender = new Thread(new EncryptedFileSender(this));
+        fileSender.start();
+    }
+
+    public EncryptedTcpCommunicator(String savedFilesPath, String username, PublicKey userPublicKey,
+                                    PrivateKey userPrivateKey, Transformation asymmetricTransformation,
+                                    TcpManager tcpManager, EncryptionManager encryptionManager) {
+        this.savedFilesPath = savedFilesPath;
         this.username = username;
         this.userPublicKey = userPublicKey;
         this.userPrivateKey = userPrivateKey;
@@ -353,8 +442,10 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
         this.encryptionManager = encryptionManager;
         this.running = new AtomicBoolean(false);
         this.messageQueue = new LinkedBlockingDeque<>();
+        this.filePartQueue = new LinkedBlockingDeque<>();
         this.observers = new ConcurrentLinkedQueue<>();
         this.communicationEstablished = false;
         this.sessionEstablished = false;
+        this.cyphering = false;
     }
 }
