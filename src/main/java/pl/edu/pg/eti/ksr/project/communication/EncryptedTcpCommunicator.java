@@ -55,6 +55,7 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
      * Path to a directory where received files will be stored.
      * Should end with '/', e.g. ".../directory/"
      */
+    @Setter
     String savedFilesPath;
 
     /**
