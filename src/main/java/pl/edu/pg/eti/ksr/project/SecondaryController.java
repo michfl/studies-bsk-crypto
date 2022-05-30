@@ -89,6 +89,9 @@ public class SecondaryController implements Initializable {
     @FXML
     private TextField connectPort;
 
+    @FXML
+    private Button disconnectButton;
+
     private String[] cypherModes = {"ECB", "CBC"};
     private String[] cypherAlgorithms = {"AES", "DES", "3DES"};
     private String sendFilePath = null;
@@ -127,6 +130,11 @@ public class SecondaryController implements Initializable {
 
     @FXML
     void connectAction(ActionEvent event) {
+
+    }
+
+    @FXML
+    void disconnectAction(ActionEvent event) {
 
     }
 
