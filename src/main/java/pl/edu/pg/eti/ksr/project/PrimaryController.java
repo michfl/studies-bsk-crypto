@@ -8,6 +8,8 @@ import javafx.scene.control.TextField;
 import javafx.scene.paint.Color;
 import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
 
+import java.io.IOException;
+
 public class PrimaryController {
 
     @FXML
@@ -33,13 +35,20 @@ public class PrimaryController {
             if (AccountManager.getUsers().get(username).equals(passHash)) {
                 communicate.setText("Logged as: " + username + "!");
                 communicate.setTextFill(Color.web("0x006400"));
+                AccountManager.setUsername(username);
+                AccountManager.setPassHash(passHash);
+                try {
+                    this.switchToSecondary();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             } else {
                 communicate.setText("Password is wrong!");
-                communicate.setTextFill(Color.color(1,0,0));
+                communicate.setTextFill(Color.color(1, 0, 0));
             }
         } else {
             communicate.setText("There is no such user!");
-            communicate.setTextFill(Color.color(1,0,0));
+            communicate.setTextFill(Color.color(1, 0, 0));
         }
     }
 
@@ -47,12 +56,17 @@ public class PrimaryController {
     void signInClicked(ActionEvent event) {
         if (AccountManager.getUsers().containsKey(usernameInput.getText())) {
             communicate.setText("Account with that username exists");
-            communicate.setTextFill(Color.color(1,0,0));
+            communicate.setTextFill(Color.color(1, 0, 0));
         } else {
             AccountManager.addAccount(usernameInput.getText(), passwordInput.getText().hashCode());
             communicate.setText("Added account");
             communicate.setTextFill(Color.web("0x006400"));
         }
+    }
+
+    @FXML
+    private void switchToSecondary() throws IOException {
+        App.setRoot("secondary");
     }
 
 }
