@@ -1,49 +1,47 @@
 package pl.edu.pg.eti.ksr.project;
 
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.ProgressBar;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
+import pl.edu.pg.eti.ksr.project.communication.EncryptedTcpCommunicator;
+import pl.edu.pg.eti.ksr.project.communication.data.Message;
 import pl.edu.pg.eti.ksr.project.crypto.EncryptionManager;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.NetworkManager;
 import pl.edu.pg.eti.ksr.project.network.TcpManager;
 import pl.edu.pg.eti.ksr.project.observer.Observer;
 
-import javax.crypto.NoSuchPaddingException;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.nio.file.Files;
 import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.spec.EncodedKeySpec;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
 import java.util.ResourceBundle;
 
 public class SecondaryController implements Initializable {
 
+    public static String FILES_PATH = "./BSK_files/file/";
+
     private TcpManager tcpManager;
+
     private EncryptionManager encryptionManager;
+
+    @Getter
+    private EncryptedTcpCommunicator communicator;
+
     private PrivateKey privateKey;
+
     private PublicKey publicKey;
 
     @AllArgsConstructor
@@ -53,8 +51,48 @@ public class SecondaryController implements Initializable {
 
         @Override
         public void update(Object o) {
-            controller.changeStatusSymbol((NetworkManager.Status) o);
-            // TODO: Should start listener when status ready
+            NetworkManager.Status status = (NetworkManager.Status) o;
+            Platform.runLater(() -> {
+                controller.changeStatusSymbol(status);
+                switch (status) {
+                    case CONNECTED -> {
+                        controller.listenButton.setDisable(true);
+                        controller.connectButton.setDisable(true);
+                        controller.disconnectButton.setDisable(false);
+                    }
+                    case READY, LISTENING -> {
+                        controller.listenButton.setDisable(false);
+                        controller.connectButton.setDisable(false);
+                        controller.disconnectButton.setDisable(true);
+                    }
+                }
+            });
+        }
+    }
+
+    @AllArgsConstructor
+    private static class EncryptionManagerObserver implements Observer {
+
+        private SecondaryController controller;
+
+        @Override
+        public void update(Object o) {
+            controller.updateProgress((double) o);
+        }
+    }
+
+    @AllArgsConstructor
+    private static class CommunicatorObserver implements Observer {
+
+        private SecondaryController controller;
+
+        @Override
+        public void update(Object o) {
+            Message message = (Message) o;
+            switch (message.messageType) {
+                // TODO:: handle communicator messages
+                case COMMUNICATION_STOP -> controller.tcpManager.disconnect();
+            }
         }
     }
 
@@ -126,6 +164,8 @@ public class SecondaryController implements Initializable {
         sendingAlgorithm.getItems().addAll(cypherAlgorithms);
         sendingAlgorithm.getSelectionModel().select(0);
 
+        disconnectButton.setDisable(true);
+
         //Communication initializations
         tcpManager = new TcpManager();
         tcpManager.attach(new TcpManagerObserver(this));
@@ -136,11 +176,15 @@ public class SecondaryController implements Initializable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        encryptionManager.attach(new EncryptionManagerObserver(this));
 
-        // TODO: attach observer to encryptionManager
-        PublicKey publicKey = getPublicKey();
-        PrivateKey privateKey = getPrivateKey();
+        publicKey = getPublicKey();
+        privateKey = getPrivateKey();
 
+        communicator = new EncryptedTcpCommunicator(FILES_PATH, AccountManager.getUsername(), publicKey, privateKey,
+                Transformation.RSA_ECB_PKCS1Padding, tcpManager, encryptionManager);
+        communicator.attach(new CommunicatorObserver(this));
+        communicator.init();
     }
 
     @FXML
@@ -152,17 +196,18 @@ public class SecondaryController implements Initializable {
 
     @FXML
     void connectAction(ActionEvent event) {
-
+        tcpManager.connect(connectIP.getText(), Integer.parseInt(connectPort.getText()));
     }
 
     @FXML
     void disconnectAction(ActionEvent event) {
-
+        communicator.stopCommunication();
+        tcpManager.disconnect();
     }
 
     @FXML
     void listenAction(ActionEvent event) {
-
+        tcpManager.listenOn(Integer.parseInt(listenPort.getText()));
     }
 
     @FXML

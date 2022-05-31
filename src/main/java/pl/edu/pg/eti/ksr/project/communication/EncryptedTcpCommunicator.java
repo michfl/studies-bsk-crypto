@@ -307,7 +307,6 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
         sessionEstablished = false;
 
         Frame frame = new Frame(Frame.Type.COMMUNICATION_STOP, null);
-
         tcpManager.send(frame);
     }
 
