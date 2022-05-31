@@ -12,11 +12,13 @@ import javafx.scene.control.TextField;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
+import lombok.AllArgsConstructor;
 import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
 import pl.edu.pg.eti.ksr.project.crypto.EncryptionManager;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.NetworkManager;
 import pl.edu.pg.eti.ksr.project.network.TcpManager;
+import pl.edu.pg.eti.ksr.project.observer.Observer;
 
 import javax.crypto.NoSuchPaddingException;
 import java.io.BufferedReader;
@@ -43,6 +45,18 @@ public class SecondaryController implements Initializable {
     private EncryptionManager encryptionManager;
     private PrivateKey privateKey;
     private PublicKey publicKey;
+
+    @AllArgsConstructor
+    private static class TcpManagerObserver implements Observer {
+
+        private SecondaryController controller;
+
+        @Override
+        public void update(Object o) {
+            controller.changeStatusSymbol((NetworkManager.Status) o);
+            // TODO: Should start listener when status ready
+        }
+    }
 
     @FXML
     private ProgressBar progressbarBar;
@@ -108,7 +122,9 @@ public class SecondaryController implements Initializable {
 
         //Communication initializations
         tcpManager = new TcpManager();
-        // TODO: attach observer to tcpManager
+        tcpManager.attach(new TcpManagerObserver(this));
+        changeStatusSymbol(tcpManager.getStatus());
+
         try {
             encryptionManager = new EncryptionManager(Transformation.RSA_ECB_PKCS1Padding.getText());
         } catch (Exception e) {
@@ -172,18 +188,18 @@ public class SecondaryController implements Initializable {
         if (!connectionSymbol.isVisible())
             connectionSymbol.setVisible(true);
         switch (stat) {
-            case CONNECTED:
+            case CONNECTED -> {
                 connectionSymbol.fillProperty().setValue(Color.web("0x006400"));
                 connectionStatus.setText("Connected");
-                break;
-            case READY:
+            }
+            case READY -> {
                 connectionSymbol.fillProperty().setValue(Color.web("0xE6E900"));
                 connectionStatus.setText("Ready");
-                break;
-            case LISTENING:
+            }
+            case LISTENING -> {
                 connectionSymbol.fillProperty().setValue(Color.web("0xE6E900"));
                 connectionStatus.setText("Listening");
-                break;
+            }
         }
     }
 
