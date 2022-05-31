@@ -21,9 +21,9 @@
       <ColumnConstraints hgrow="SOMETIMES" maxWidth="145.0" minWidth="10.0" prefWidth="128.0" />
   </columnConstraints>
   <rowConstraints>
-    <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-    <RowConstraints maxHeight="292.0" minHeight="10.0" prefHeight="279.0" vgrow="SOMETIMES" />
-    <RowConstraints maxHeight="128.0" minHeight="0.0" prefHeight="39.0" vgrow="SOMETIMES" />
+    <RowConstraints maxHeight="68.0" minHeight="10.0" prefHeight="60.0" vgrow="SOMETIMES" />
+    <RowConstraints maxHeight="304.0" minHeight="10.0" prefHeight="278.0" vgrow="SOMETIMES" />
+    <RowConstraints maxHeight="128.0" minHeight="0.0" prefHeight="59.0" vgrow="SOMETIMES" />
   </rowConstraints>
    <children>
       <Label text="CryptoSender" GridPane.halignment="CENTER">
@@ -124,21 +124,24 @@
             <Label text="Michał Flakowski" />
          </children>
       </FlowPane>
-      <FlowPane alignment="CENTER_LEFT" hgap="3.0" prefHeight="200.0" prefWidth="200.0" GridPane.rowIndex="2">
+      <FlowPane alignment="TOP_CENTER" hgap="3.0" prefHeight="200.0" prefWidth="200.0" vgap="3.0" GridPane.rowIndex="2">
          <children>
-            <Label text="IP:">
+            <Label text="IP">
                <FlowPane.margin>
                   <Insets left="10.0" />
                </FlowPane.margin>
             </Label>
-            <TextField fx:id="connectIP" prefHeight="25.0" prefWidth="56.0" />
+            <TextField fx:id="connectIP" prefHeight="25.0" prefWidth="44.0" text="localhost">
+               <font>
+                  <Font size="9.0" />
+               </font></TextField>
             <Label text="Port:">
                <FlowPane.margin>
                   <Insets />
                </FlowPane.margin>
             </Label>
-            <TextField fx:id="connectPort" prefHeight="25.0" prefWidth="44.0" text="6666" />
-            <Button fx:id="connectButton" mnemonicParsing="false" onAction="#connectAction" prefHeight="25.0" prefWidth="53.0" text="Connect">
+            <TextField fx:id="connectPort" prefHeight="25.0" prefWidth="40.0" text="6666" />
+            <Button fx:id="connectButton" mnemonicParsing="false" onAction="#connectAction" prefHeight="25.0" prefWidth="68.0" text="Connect">
                <FlowPane.margin>
                   <Insets left="5.0" />
                </FlowPane.margin>
@@ -146,10 +149,21 @@
                   <Font size="10.0" />
                </font>
             </Button>
-            <Button fx:id="disconnectButton" mnemonicParsing="false" onAction="#disconnectAction" prefHeight="24.0" prefWidth="63.0" text="Disconnect">
+            <Button fx:id="disconnectButton" mnemonicParsing="false" onAction="#disconnectAction" prefHeight="24.0" prefWidth="66.0" text="Disconnect">
                <font>
                   <Font size="10.0" />
                </font>
+            </Button>
+            <Label text="IP:" visible="false" />
+            <Label text="Port:" />
+            <TextField fx:id="listenPort" prefHeight="25.0" prefWidth="40.0" text="6666" />
+            <Button fx:id="listenButton" mnemonicParsing="false" onAction="#listenAction" prefHeight="25.0" prefWidth="68.0" text="Listen">
+               <font>
+                  <Font size="10.0" />
+               </font>
+               <FlowPane.margin>
+                  <Insets left="5.0" right="15.0" />
+               </FlowPane.margin>
             </Button>
          </children>
          <opaqueInsets>
@@ -158,6 +172,9 @@
          <GridPane.margin>
             <Insets />
          </GridPane.margin>
+         <padding>
+            <Insets top="5.0" />
+         </padding>
       </FlowPane>
    </children>
 </GridPane>

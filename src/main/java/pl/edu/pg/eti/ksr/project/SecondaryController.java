@@ -106,6 +106,12 @@ public class SecondaryController implements Initializable {
     @FXML
     private Button disconnectButton;
 
+    @FXML
+    private Button listenButton;
+
+    @FXML
+    private TextField listenPort;
+
     private String[] cypherModes = {"ECB", "CBC"};
     private String[] cypherAlgorithms = {"AES", "DES", "3DES"};
     private String sendFilePath = null;
@@ -155,14 +161,17 @@ public class SecondaryController implements Initializable {
     }
 
     @FXML
+    void listenAction(ActionEvent event) {
+
+    }
+
+    @FXML
     void sendTextChatMessage(ActionEvent event) {
         if (!textChatMessage.getText().equals("")) {
-            String s = "" + textChatArea.getText() +
-                    "\n[" + AccountManager.getUsername() + "]: " +
-                    textChatMessage.getText();
-            textChatArea.setText(s);
+            String mess = genChatMessage(textChatMessage.getText(), AccountManager.getUsername());
+            textChatArea.setText(mess);
             textChatMessage.setText("");
-            //Send message to the other client
+            //Send mess to the other client
         }
     }
 
@@ -201,6 +210,12 @@ public class SecondaryController implements Initializable {
                 connectionStatus.setText("Listening");
             }
         }
+    }
+
+    private String genChatMessage(String message, String username) {
+        return "" + textChatArea.getText() +
+                "\n[" + username + "]: " +
+                message;
     }
 
     private PrivateKey getPrivateKey() {
