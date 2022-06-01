@@ -7,6 +7,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -150,9 +151,19 @@ public class SecondaryController implements Initializable {
     @FXML
     private TextField listenPort;
 
+    @FXML
+    private Button stopListenButton;
+
+    @FXML
+    private Label sendingDirName;
+
+    @FXML
+    private Button sendingDirectoryButton;
+
     private String[] cypherModes = {"ECB", "CBC"};
     private String[] cypherAlgorithms = {"AES", "DES", "3DES"};
     private String sendFilePath = null;
+    private String saveDirPath = null;
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -211,6 +222,12 @@ public class SecondaryController implements Initializable {
     }
 
     @FXML
+    void stopListenAction(ActionEvent event) {
+
+    }
+
+
+    @FXML
     void sendTextChatMessage(ActionEvent event) {
         if (!textChatMessage.getText().equals("")) {
             String mess = genChatMessage(textChatMessage.getText(), AccountManager.getUsername());
@@ -228,6 +245,17 @@ public class SecondaryController implements Initializable {
         if (f != null) {
             sendingFileName.setText(f.getName());
             sendFilePath = f.getAbsolutePath();
+        }
+    }
+
+    @FXML
+    void chooseDirToSave(ActionEvent event) {
+        DirectoryChooser dc = new DirectoryChooser();
+        File f = dc.showDialog(null);
+
+        if (f != null) {
+            sendingDirName.setText(f.getName());
+            saveDirPath = f.getAbsolutePath();
         }
     }
 

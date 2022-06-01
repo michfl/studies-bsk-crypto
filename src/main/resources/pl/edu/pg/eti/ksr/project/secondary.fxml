@@ -86,9 +86,10 @@
                </font>
             </Label>
             <ComboBox fx:id="sendingAlgorithm" prefWidth="150.0" />
-            <Button fx:id="sendingFileButton" mnemonicParsing="false" onAction="#chooseFileToSend" prefHeight="25.0" prefWidth="150.0" text="Choose File" />
+            <Button fx:id="sendingFileButton" mnemonicParsing="false" onAction="#chooseFileToSend" prefHeight="25.0" prefWidth="150.0" text="Choose file to send" />
             <Label fx:id="sendingFileName" text="..." />
-            <Label layoutX="92.0" layoutY="101.0" />
+            <Button fx:id="sendingDirectoryButton" mnemonicParsing="false" onAction="#chooseDirToSave" prefHeight="25.0" prefWidth="150.0" text="Choose save directory" />
+            <Label fx:id="sendingDirName" layoutX="92.0" layoutY="101.0" text="..." />
             <Label layoutX="96.0" layoutY="123.0" />
             <Button fx:id="sendingSendFile" mnemonicParsing="false" onAction="#sendFile" text="Send" />
          </children>
@@ -149,28 +150,35 @@
                   <Font size="10.0" />
                </font>
             </Button>
-            <Button fx:id="disconnectButton" mnemonicParsing="false" onAction="#disconnectAction" prefHeight="24.0" prefWidth="66.0" text="Disconnect">
+            <Button fx:id="disconnectButton" mnemonicParsing="false" onAction="#disconnectAction" prefHeight="25.0" prefWidth="68.0" text="Disconnect">
                <font>
                   <Font size="10.0" />
                </font>
             </Button>
-            <Label text="IP:" visible="false" />
-            <Label text="Port:" />
+            <Label text="Port:">
+               <FlowPane.margin>
+                  <Insets left="70.0" />
+               </FlowPane.margin></Label>
             <TextField fx:id="listenPort" prefHeight="25.0" prefWidth="40.0" text="6666" />
             <Button fx:id="listenButton" mnemonicParsing="false" onAction="#listenAction" prefHeight="25.0" prefWidth="68.0" text="Listen">
                <font>
                   <Font size="10.0" />
                </font>
                <FlowPane.margin>
-                  <Insets left="5.0" right="15.0" />
+                  <Insets left="5.0" />
                </FlowPane.margin>
+            </Button>
+            <Button fx:id="stopListenButton" mnemonicParsing="false" onAction="#stopListenAction" prefHeight="25.0" prefWidth="68.0" text="Stop">
+               <font>
+                  <Font size="10.0" />
+               </font>
             </Button>
          </children>
          <opaqueInsets>
             <Insets />
          </opaqueInsets>
          <GridPane.margin>
-            <Insets />
+            <Insets right="15.0" />
          </GridPane.margin>
          <padding>
             <Insets top="5.0" />
