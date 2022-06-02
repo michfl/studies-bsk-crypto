@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import javax.crypto.Cipher;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
@@ -17,22 +16,17 @@ import java.security.*;
 import java.security.spec.KeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
 public class AccountManager {
 
+
+    private static final String mainFilepath = "./BSK_files";
+
+    @Getter
+    @Setter
     private static Map<String, Integer> users = new HashMap<>();
-    private static String mainFilepath = "./BSK_files";
-
-    public static Map<String, Integer> getUsers() {
-        return users;
-    }
-
-    public static void populateAccounts() {
-        users.put("test", "test".hashCode());
-    }
 
     @Getter
     @Setter
@@ -134,87 +128,9 @@ public class AccountManager {
                 }
             }
 
-            /*try (FileOutputStream fos = new FileOutputStream(mainFilepath + "/private/" + username + "_private.key")) {
-                PKCS8EncodedKeySpec pkcs8EncodedKeySpec = new PKCS8EncodedKeySpec(privateKey.getEncoded());
-                fos.write(pkcs8EncodedKeySpec.getEncoded());
-            }
-
-            try (FileOutputStream fos = new FileOutputStream(mainFilepath + "/public/" + username + "_public.key")) {
-                X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(publicKey.getEncoded());
-                fos.write(x509EncodedKeySpec.getEncoded());
-            }
-
-            byte[] encryptedPrivate = encryptFile(mainFilepath + "/private/" + username + "_private.key", passHash);
-            try (FileOutputStream fos = new FileOutputStream(mainFilepath + "/private/" + username + "_privateEnc.key")) {
-                if (encryptedPrivate != null) {
-                    fos.write(encryptedPrivate);
-                }
-            }
-
-            byte[] decryptedPrivate = decryptFile(mainFilepath + "/private/" + username + "_privateEnc.key", passHash);
-            try (FileOutputStream fos = new FileOutputStream(mainFilepath + "/private/" + username + "_privateDec.key")) {
-                if (decryptedPrivate != null) {
-                    fos.write(decryptedPrivate);
-                }
-            }*/
-
-            /*BufferedWriter writer = new BufferedWriter(
-                    new FileWriter(mainFilepath + "/private/" + username + "_private.key", true));
-            String encryptedPriv = encrypt((Base64.getEncoder().encodeToString(privateKey.getEncoded())), passHash);
-            writer.append(encryptedPriv);
-            writer.append('\n');
-            writer.close();
-
-            BufferedWriter writer1 = new BufferedWriter(
-                    new FileWriter(mainFilepath + "/public/" + username + "_public.txt", true));
-            String encryptedPub = encrypt((Base64.getEncoder().encodeToString(publicKey.getEncoded())), passHash);
-            writer1.append(encryptedPub);
-            writer1.append('\n');
-            writer1.close();*/
-
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public static String encrypt(String toEncrypt, Integer key) {
-        try {
-            //Generate key and iv
-            IvParameterSpec ivParams = generateIv();
-            SecretKey secretKey = getKeyFromPassword(key, 128, "12345678");
-
-            //Init cypher
-            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParams);
-
-            //Encrypt
-            byte[] encrypted = cipher.doFinal(toEncrypt.getBytes());
-            return Base64.getEncoder().encodeToString(ivParams.getIV()) + " " + Base64.getEncoder().encodeToString(encrypted);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public static byte[] decrypt(String toDecrypt, Integer key) {
-        String[] ivAndMess = getIvAndMessage(toDecrypt);
-        try {
-            //Get key and iv
-            IvParameterSpec ivParams = new IvParameterSpec(Base64.getDecoder().decode(ivAndMess[0]));
-            SecretKey secretKey = getKeyFromPassword(key, 128, "12345678");
-
-            //Init cypher
-            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParams);
-
-            //Decrypt
-            byte[] original = cipher.doFinal(Base64.getDecoder().decode(ivAndMess[1]));
-
-            return original;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
     public static byte[] encryptBytes(byte[] bytes, Integer key) {
@@ -294,9 +210,5 @@ public class AccountManager {
         byte[] iv = new byte[16];
         new SecureRandom().nextBytes(iv);
         return new IvParameterSpec(iv);
-    }
-
-    private static String[] getIvAndMessage(String k) {
-        return k.split(" ", 2);
     }
 }

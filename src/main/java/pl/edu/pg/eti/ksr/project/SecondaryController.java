@@ -1,14 +1,18 @@
 package pl.edu.pg.eti.ksr.project;
 
+import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
+import javafx.util.Duration;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
@@ -52,6 +56,9 @@ public class SecondaryController implements Initializable {
     private PublicKey publicKey;
 
     private double progress;
+
+    TranslateTransition arrowAnimDown;
+    TranslateTransition arrowAnimUp;
 
     @AllArgsConstructor
     private static class TcpManagerObserver implements Observer {
@@ -138,6 +145,12 @@ public class SecondaryController implements Initializable {
                                 + data.getOriginalFileName());
                         controller.sendingAlgorithm.setDisable(true);
                         controller.sendingChoice.setDisable(true);
+                        controller.sendingSendFile.setDisable(true);
+                        controller.textChatSend.setDisable(true);
+                        controller.stateArrow.setRotate(0.0);
+                        controller.stateArrow.setVisible(true);
+                        controller.stateArrow.setTranslateY(0.0);
+                        controller.arrowAnimDown.play();
                     });
                 }
                 case FILE_READY -> {
@@ -148,6 +161,12 @@ public class SecondaryController implements Initializable {
                         controller.updateProgress(0);
                         controller.sendingAlgorithm.setDisable(false);
                         controller.sendingChoice.setDisable(false);
+                        controller.sendingSendFile.setDisable(false);
+                        controller.textChatSend.setDisable(false);
+                        controller.arrowAnimDown.stop();
+                        controller.arrowAnimUp.stop();
+                        controller.stateArrow.setVisible(false);
+                        controller.stateArrow.setRotate(0.0);
                     });
                 }
             }
@@ -185,9 +204,6 @@ public class SecondaryController implements Initializable {
     private Button textChatSend;
 
     @FXML
-    private Circle connectionSymbol;
-
-    @FXML
     private Label connectionStatus;
 
     @FXML
@@ -217,6 +233,18 @@ public class SecondaryController implements Initializable {
     @FXML
     private Button sendingDirectoryButton;
 
+    @FXML
+    private Button showSavedButton;
+
+    @FXML
+    private Label usernameLabel;
+
+    @FXML
+    private ImageView stateArrow;
+
+    @FXML
+    private ImageView statusImg;
+
     private String[] cypherModes = {"ECB", "CBC"};
 
     private String[] cypherAlgorithms = {"AES", "DES", "DESede"};
@@ -225,10 +253,28 @@ public class SecondaryController implements Initializable {
 
     private String saveDirPath = null;
 
+    private Image listenIcon = new Image(getClass().getResourceAsStream("ListenDefault.gif"));
+    private Image readyIcon = new Image(getClass().getResourceAsStream("readyState.png"));
+    private Image connectedIcon = new Image(getClass().getResourceAsStream("connectedState.png"));
+
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
 
         //Stage initializations
+        stateArrow.setVisible(false);
+
+        arrowAnimDown = new TranslateTransition();
+        arrowAnimDown.setNode(stateArrow);
+        arrowAnimDown.setDuration(Duration.millis(1000));
+        arrowAnimDown.setCycleCount(TranslateTransition.INDEFINITE);
+        arrowAnimDown.setByY(60);
+
+        arrowAnimUp = new TranslateTransition();
+        arrowAnimUp.setNode(stateArrow);
+        arrowAnimUp.setDuration(Duration.millis(1000));
+        arrowAnimUp.setCycleCount(TranslateTransition.INDEFINITE);
+        arrowAnimUp.setByY(-60);
+
         sendingChoice.getItems().addAll(cypherModes);
         sendingChoice.getSelectionModel().select(0);
 
@@ -239,6 +285,8 @@ public class SecondaryController implements Initializable {
         stopListenButton.setDisable(true);
         textChatSend.setDisable(true);
         sendingSendFile.setDisable(true);
+
+        usernameLabel.setText("\"" + AccountManager.getUsername() + "\"");
 
         //Communication initializations
         tcpManager = new TcpManager();
@@ -271,7 +319,7 @@ public class SecondaryController implements Initializable {
     @FXML
     public void updateProgress(double value) {
         BigDecimal progress = new BigDecimal(String.format("%.2f", value).replace(",", "."));
-        progressbarStatus.setText(progress.doubleValue() * 100 + "%");
+        progressbarStatus.setText((int) Math.round(progress.doubleValue() * 100) + "%");
         progressbarBar.setProgress(progress.doubleValue());
     }
 
@@ -324,6 +372,18 @@ public class SecondaryController implements Initializable {
     }
 
     @FXML
+    void showSavedAction(ActionEvent event) {
+        if (saveDirPath != null) {
+            try {
+                Runtime.getRuntime().exec("explorer.exe " + saveDirPath);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @FXML
     void chooseFileToSend(ActionEvent event) {
         FileChooser fc = new FileChooser();
         File f = fc.showOpenDialog(null);
@@ -364,6 +424,12 @@ public class SecondaryController implements Initializable {
 
             sendingAlgorithm.setDisable(true);
             sendingChoice.setDisable(true);
+            sendingSendFile.setDisable(true);
+            textChatSend.setDisable(true);
+            stateArrow.setRotate(180.0);
+            stateArrow.setVisible(true);
+            stateArrow.setTranslateY(60);
+            arrowAnimUp.play();
         }
     }
 
@@ -393,20 +459,18 @@ public class SecondaryController implements Initializable {
     }
 
     void changeStatusSymbol(NetworkManager.Status stat) {
-        if (!connectionSymbol.isVisible())
-            connectionSymbol.setVisible(true);
         switch (stat) {
             case CONNECTED -> {
-                connectionSymbol.fillProperty().setValue(Color.web("0x006400"));
                 connectionStatus.setText("Connected");
+                statusImg.setImage(connectedIcon);
             }
             case READY -> {
-                connectionSymbol.fillProperty().setValue(Color.web("0xE6E900"));
                 connectionStatus.setText("Ready");
+                statusImg.setImage(readyIcon);
             }
             case LISTENING -> {
-                connectionSymbol.fillProperty().setValue(Color.web("0xE6E900"));
                 connectionStatus.setText("Listening");
+                statusImg.setImage(listenIcon);
             }
         }
     }
@@ -439,7 +503,6 @@ public class SecondaryController implements Initializable {
     }
 
     private PublicKey getPublicKey() {
-        File publicKeyFile = new File("./BSK_files/public/" + AccountManager.getUsername() + "_encpublic.key");
         try {
             byte[] publicKeyBytes = AccountManager.decryptFile(
                     "./BSK_files/public/" + AccountManager.getUsername() + "_encpublic.key",

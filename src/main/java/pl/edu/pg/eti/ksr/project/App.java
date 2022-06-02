@@ -4,10 +4,12 @@ import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.Objects;
 
 /**
@@ -21,8 +23,12 @@ public class App extends Application {
 
     @Override
     public void start(Stage stage) throws IOException {
-        scene = new Scene(loadFXML("primary"), 640, 480);
+        scene = new Scene(loadFXML("primary"), 600, 420);
         stage.setScene(scene);
+        stage.setResizable(false);
+        stage.setTitle("CryptoSender");
+        Image icon = new Image(getClass().getResourceAsStream("stageIcon2.png"));
+        stage.getIcons().add(icon);
 
         stage.setOnCloseRequest(e -> closeProgram());
 
