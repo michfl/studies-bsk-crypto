@@ -158,12 +158,12 @@ public class TcpManager implements NetworkManager, Subject {
         if (status != Status.CONNECTED) return;
 
         try {
-            in.close();
+            if (in != null) in.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
         try {
-            out.close();
+            if (out != null) out.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -173,7 +173,7 @@ public class TcpManager implements NetworkManager, Subject {
             e.printStackTrace();
         }
         try {
-            clientSocket.close();
+            if (clientSocket != null) clientSocket.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

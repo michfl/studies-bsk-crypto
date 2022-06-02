@@ -44,11 +44,13 @@ public class App extends Application {
     }
 
     private void closeProgram() {
-        // TODO: sent stop communication
-
-        controller.getCommunicator().getTcpManager().stop();
-        controller.getCommunicator().getTcpManager().disconnect();
-        controller.getCommunicator().close();
+        if (controller != null) {
+            if (controller.getCommunicator().isCommunicationEstablished())
+                controller.getCommunicator().stopCommunication();
+            controller.getCommunicator().getTcpManager().stop();
+            controller.getCommunicator().getTcpManager().disconnect();
+            controller.getCommunicator().close();
+        }
     }
 
     public static void main(String[] args) {

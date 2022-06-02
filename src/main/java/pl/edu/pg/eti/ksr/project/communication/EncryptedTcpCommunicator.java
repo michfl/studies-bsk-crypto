@@ -425,6 +425,8 @@ public class EncryptedTcpCommunicator implements Observer, Subject {
                     encryptionManager.encrypt(String.valueOf(fileSize), sessionKey));
         }
 
+        latestFileData = new FileData(fileName, fileName, pathToFile.toString());
+
         tcpManager.send(new Frame(Frame.Type.TRANSFER_INIT, fileInfo));
 
         cyphering = true;

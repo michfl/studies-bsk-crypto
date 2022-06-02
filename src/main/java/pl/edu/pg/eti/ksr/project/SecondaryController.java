@@ -12,20 +12,26 @@ import javafx.stage.FileChooser;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
+import pl.edu.pg.eti.ksr.project.communication.CommunicationException;
 import pl.edu.pg.eti.ksr.project.communication.EncryptedTcpCommunicator;
+import pl.edu.pg.eti.ksr.project.communication.data.FileData;
 import pl.edu.pg.eti.ksr.project.communication.data.Message;
+import pl.edu.pg.eti.ksr.project.communication.data.SessionData;
 import pl.edu.pg.eti.ksr.project.crypto.EncryptionManager;
 import pl.edu.pg.eti.ksr.project.crypto.Transformation;
 import pl.edu.pg.eti.ksr.project.network.NetworkManager;
 import pl.edu.pg.eti.ksr.project.network.TcpManager;
 import pl.edu.pg.eti.ksr.project.observer.Observer;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.security.KeyFactory;
-import java.security.PrivateKey;
-import java.security.PublicKey;
+import java.nio.file.Path;
+import java.security.*;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ResourceBundle;
@@ -45,6 +51,8 @@ public class SecondaryController implements Initializable {
 
     private PublicKey publicKey;
 
+    private double progress;
+
     @AllArgsConstructor
     private static class TcpManagerObserver implements Observer {
 
@@ -58,13 +66,27 @@ public class SecondaryController implements Initializable {
                 switch (status) {
                     case CONNECTED -> {
                         controller.listenButton.setDisable(true);
+                        controller.stopListenButton.setDisable(true);
                         controller.connectButton.setDisable(true);
                         controller.disconnectButton.setDisable(false);
+                        controller.textChatSend.setDisable(false);
+                        controller.sendingSendFile.setDisable(false);
                     }
-                    case READY, LISTENING -> {
+                    case READY -> {
                         controller.listenButton.setDisable(false);
+                        controller.stopListenButton.setDisable(true);
                         controller.connectButton.setDisable(false);
                         controller.disconnectButton.setDisable(true);
+                        controller.textChatSend.setDisable(true);
+                        controller.sendingSendFile.setDisable(true);
+                    }
+                    case LISTENING -> {
+                        controller.listenButton.setDisable(true);
+                        controller.stopListenButton.setDisable(false);
+                        controller.connectButton.setDisable(false);
+                        controller.disconnectButton.setDisable(true);
+                        controller.textChatSend.setDisable(true);
+                        controller.sendingSendFile.setDisable(true);
                     }
                 }
             });
@@ -78,7 +100,11 @@ public class SecondaryController implements Initializable {
 
         @Override
         public void update(Object o) {
-            controller.updateProgress((double) o);
+            double val = (double) o;
+            if (val > controller.progress + 0.01) {
+                Platform.runLater(() -> controller.updateProgress(val));
+                controller.progress = val;
+            }
         }
     }
 
@@ -90,9 +116,40 @@ public class SecondaryController implements Initializable {
         @Override
         public void update(Object o) {
             Message message = (Message) o;
+            controller.communicator.getMessageQueue().poll();
             switch (message.messageType) {
                 // TODO:: handle communicator messages
-                case COMMUNICATION_STOP -> controller.tcpManager.disconnect();
+                case COMMUNICATION_STOP -> {
+                    controller.tcpManager.disconnect();
+                    controller.chatPutMessage(controller.communicator.getOtherUsername() + " exited");
+                }
+                case COMMUNICATION -> controller.chatPutMessage(controller.communicator.getOtherUsername() + " joined");
+                case MESSAGE -> controller.chatPutMessage((String) message.data,
+                        controller.communicator.getOtherUsername());
+                case SESSION -> {
+                    SessionData data = (SessionData) message.data;
+                    Platform.runLater(() -> controller.updateSessionSettings(data.getTransformation()));
+                }
+                case FILE -> {
+                    FileData data = (FileData) message.data;
+                    controller.progress = 0;
+                    Platform.runLater(() -> {
+                        controller.chatPutMessage(controller.communicator.getOtherUsername() + " is sending file "
+                                + data.getOriginalFileName());
+                        controller.sendingAlgorithm.setDisable(true);
+                        controller.sendingChoice.setDisable(true);
+                    });
+                }
+                case FILE_READY -> {
+                    FileData data = controller.communicator.getLatestFileData();
+                    controller.progress = 0;
+                    Platform.runLater(() -> {
+                        controller.chatPutMessage("Transfer of " + data.getOriginalFileName() + " is complete");
+                        controller.updateProgress(0);
+                        controller.sendingAlgorithm.setDisable(false);
+                        controller.sendingChoice.setDisable(false);
+                    });
+                }
             }
         }
     }
@@ -161,8 +218,11 @@ public class SecondaryController implements Initializable {
     private Button sendingDirectoryButton;
 
     private String[] cypherModes = {"ECB", "CBC"};
-    private String[] cypherAlgorithms = {"AES", "DES", "3DES"};
+
+    private String[] cypherAlgorithms = {"AES", "DES", "DESede"};
+
     private String sendFilePath = null;
+
     private String saveDirPath = null;
 
     @Override
@@ -176,6 +236,9 @@ public class SecondaryController implements Initializable {
         sendingAlgorithm.getSelectionModel().select(0);
 
         disconnectButton.setDisable(true);
+        stopListenButton.setDisable(true);
+        textChatSend.setDisable(true);
+        sendingSendFile.setDisable(true);
 
         //Communication initializations
         tcpManager = new TcpManager();
@@ -196,6 +259,13 @@ public class SecondaryController implements Initializable {
                 Transformation.RSA_ECB_PKCS1Padding, tcpManager, encryptionManager);
         communicator.attach(new CommunicatorObserver(this));
         communicator.init();
+
+        Path saveDir = Path.of("./BSK_files/file").toAbsolutePath();
+        saveDirPath = saveDir.toString();
+        sendingDirName.setText(saveDir.getFileName().toString());
+        communicator.setSavedFilesPath(saveDirPath + "/");
+        progressbarStatus.setText("0.0%");
+        progress = 0;
     }
 
     @FXML
@@ -207,13 +277,21 @@ public class SecondaryController implements Initializable {
 
     @FXML
     void connectAction(ActionEvent event) {
-        tcpManager.connect(connectIP.getText(), Integer.parseInt(connectPort.getText()));
+        if (tcpManager.connect(connectIP.getText(), Integer.parseInt(connectPort.getText()))) {
+            try {
+                communicator.initiateCommunication();
+            } catch (CommunicationException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @FXML
     void disconnectAction(ActionEvent event) {
         communicator.stopCommunication();
         tcpManager.disconnect();
+
+        chatPutMessage("Exiting...");
     }
 
     @FXML
@@ -223,17 +301,25 @@ public class SecondaryController implements Initializable {
 
     @FXML
     void stopListenAction(ActionEvent event) {
-
+        tcpManager.stop();
     }
-
 
     @FXML
     void sendTextChatMessage(ActionEvent event) {
-        if (!textChatMessage.getText().equals("")) {
-            String mess = genChatMessage(textChatMessage.getText(), AccountManager.getUsername());
-            textChatArea.setText(mess);
+        if (!textChatMessage.getText().equals("") && communicator.isCommunicationEstablished()) {
+
+            updateSession();
+
+            chatPutMessage(textChatMessage.getText(), AccountManager.getUsername());
+
+            try {
+                communicator.send(textChatMessage.getText());
+            } catch (InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException |
+                    InvalidKeyException | NoSuchPaddingException | NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            }
+
             textChatMessage.setText("");
-            //Send mess to the other client
         }
     }
 
@@ -256,13 +342,53 @@ public class SecondaryController implements Initializable {
         if (f != null) {
             sendingDirName.setText(f.getName());
             saveDirPath = f.getAbsolutePath();
+            communicator.setSavedFilesPath(saveDirPath + "/");
         }
     }
 
     @FXML
     void sendFile(ActionEvent event) {
-        if (sendFilePath != null && sendingChoice.getValue() != null) {
-            //Send file to the other client
+        if (sendFilePath != null && communicator.isCommunicationEstablished()) {
+
+            updateSession();
+
+            try {
+                communicator.send(Path.of(sendFilePath));
+            } catch (CommunicationException | IOException | NoSuchPaddingException | NoSuchAlgorithmException |
+                    BadPaddingException | IllegalBlockSizeException | InvalidKeyException |
+                    InvalidAlgorithmParameterException e) {
+                e.printStackTrace();
+            }
+
+            chatPutMessage("Sending file " + sendingFileName.getText() + " to " + communicator.getOtherUsername());
+
+            sendingAlgorithm.setDisable(true);
+            sendingChoice.setDisable(true);
+        }
+    }
+
+    Transformation readSessionSettings() {
+        return Transformation.fromText(sendingAlgorithm.getSelectionModel().getSelectedItem() + "/" +
+                sendingChoice.getSelectionModel().getSelectedItem() + "/PKCS5Padding");
+    }
+
+    void updateSessionSettings(Transformation transformation) {
+        sendingAlgorithm.setValue(transformation.getAlgorithm());
+        sendingChoice.setValue(transformation.getMode());
+    }
+
+    void updateSession() {
+        Transformation currentSessionSettings = readSessionSettings();
+
+        if (!communicator.isSessionEstablished() ||
+                (communicator.getSymmetricTransformation() != null &&
+                        communicator.getSymmetricTransformation() != currentSessionSettings)) {
+            try {
+                communicator.initiateSession(currentSessionSettings);
+            } catch (CommunicationException | NoSuchAlgorithmException | IllegalBlockSizeException |
+                    BadPaddingException | InvalidKeyException | NoSuchPaddingException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -285,10 +411,16 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    private void chatPutMessage(String message) {
+        textChatArea.appendText("\n" + message);
+    }
+
+    private void chatPutMessage(String message, String username) {
+        textChatArea.appendText(genChatMessage(message, username));
+    }
+
     private String genChatMessage(String message, String username) {
-        return "" + textChatArea.getText() +
-                "\n[" + username + "]: " +
-                message;
+        return "\n[" + username + "]: " + message;
     }
 
     private PrivateKey getPrivateKey() {
