@@ -1,6 +1,5 @@
 package pl.edu.pg.eti.ksr.project.communication;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

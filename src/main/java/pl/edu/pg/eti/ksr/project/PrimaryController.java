@@ -10,6 +10,9 @@ import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
 
 import java.io.IOException;
 
+/**
+ * Log in / sign in screen.
+ */
 public class PrimaryController {
 
     @FXML

@@ -8,8 +8,6 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
@@ -38,28 +36,76 @@ import java.nio.file.Path;
 import java.security.*;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Objects;
 import java.util.ResourceBundle;
 
+/**
+ * Main application window.
+ */
 public class SecondaryController implements Initializable {
 
+    /**
+     * Default dir for saving incoming files.
+     */
     public static String FILES_PATH = "./BSK_files/file/";
 
+    /**
+     * TCP manager used for communication.
+     */
     private TcpManager tcpManager;
 
+    /**
+     * Encryption manager used in cyphering process.
+     */
     private EncryptionManager encryptionManager;
 
+    /**
+     * Communicator providing functionality of sending and receiving messages and files.
+     */
     @Getter
     private EncryptedTcpCommunicator communicator;
 
-    private PrivateKey privateKey;
-
-    private PublicKey publicKey;
-
+    /**
+     * Used for cyphering progress bar update.
+     */
     private double progress;
 
+    /**
+     * Possible values of cyphering modes.
+     */
+    private final String[] cypherModes = {"ECB", "CBC"};
+
+    /**
+     * Possible values of cyphering algorithms.
+     */
+    private final String[] cypherAlgorithms = {"AES", "DES", "DESede"};
+
+    /**
+     * Path to currently selected file to be sent.
+     */
+    private String sendFilePath = null;
+
+    /**
+     * Currently selected dir for saving incoming files.
+     */
+    private String saveDirPath = null;
+
+    private final Image listenIcon = new Image(Objects.requireNonNull(getClass()
+            .getResourceAsStream("ListenDefault.gif")));
+
+    private final Image readyIcon = new Image(Objects.requireNonNull(getClass()
+            .getResourceAsStream("readyState.png")));
+
+    private final Image connectedIcon = new Image(Objects.requireNonNull(getClass()
+            .getResourceAsStream("connectedState.png")));
+
     TranslateTransition arrowAnimDown;
+
     TranslateTransition arrowAnimUp;
 
+    /**
+     * Observer used for reacting to tcp manager status changes.
+     */
     @AllArgsConstructor
     private static class TcpManagerObserver implements Observer {
 
@@ -100,6 +146,9 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Observer used for updating cyphering status bar.
+     */
     @AllArgsConstructor
     private static class EncryptionManagerObserver implements Observer {
 
@@ -115,6 +164,9 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Observer used for handling events reported by communicator.
+     */
     @AllArgsConstructor
     private static class CommunicatorObserver implements Observer {
 
@@ -245,18 +297,9 @@ public class SecondaryController implements Initializable {
     @FXML
     private ImageView statusImg;
 
-    private String[] cypherModes = {"ECB", "CBC"};
-
-    private String[] cypherAlgorithms = {"AES", "DES", "DESede"};
-
-    private String sendFilePath = null;
-
-    private String saveDirPath = null;
-
-    private Image listenIcon = new Image(getClass().getResourceAsStream("ListenDefault.gif"));
-    private Image readyIcon = new Image(getClass().getResourceAsStream("readyState.png"));
-    private Image connectedIcon = new Image(getClass().getResourceAsStream("connectedState.png"));
-
+    /**
+     * Window initialization.
+     */
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
 
@@ -300,8 +343,8 @@ public class SecondaryController implements Initializable {
         }
         encryptionManager.attach(new EncryptionManagerObserver(this));
 
-        publicKey = getPublicKey();
-        privateKey = getPrivateKey();
+        PublicKey publicKey = getPublicKey();
+        PrivateKey privateKey = getPrivateKey();
 
         communicator = new EncryptedTcpCommunicator(FILES_PATH, AccountManager.getUsername(), publicKey, privateKey,
                 Transformation.RSA_ECB_PKCS1Padding, tcpManager, encryptionManager);
@@ -316,6 +359,10 @@ public class SecondaryController implements Initializable {
         progress = 0;
     }
 
+    /**
+     * Updates progress bar with a given value.
+     * @param value new value in range [0, 0]
+     */
     @FXML
     public void updateProgress(double value) {
         BigDecimal progress = new BigDecimal(String.format("%.2f", value).replace(",", "."));
@@ -323,6 +370,9 @@ public class SecondaryController implements Initializable {
         progressbarBar.setProgress(progress.doubleValue());
     }
 
+    /**
+     * Tries to connect to other client.
+     */
     @FXML
     void connectAction(ActionEvent event) {
         if (tcpManager.connect(connectIP.getText(), Integer.parseInt(connectPort.getText()))) {
@@ -334,6 +384,9 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Disconnects from other client.
+     */
     @FXML
     void disconnectAction(ActionEvent event) {
         communicator.stopCommunication();
@@ -342,16 +395,26 @@ public class SecondaryController implements Initializable {
         chatPutMessage("Exiting...");
     }
 
+    /**
+     * Starts listing on provided port.
+     * This enables other clients to connect to this client on that port.
+     */
     @FXML
     void listenAction(ActionEvent event) {
         tcpManager.listenOn(Integer.parseInt(listenPort.getText()));
     }
 
+    /**
+     * Stops listening on provided port.
+     */
     @FXML
     void stopListenAction(ActionEvent event) {
         tcpManager.stop();
     }
 
+    /**
+     * Sends chat message.
+     */
     @FXML
     void sendTextChatMessage(ActionEvent event) {
         if (!textChatMessage.getText().equals("") && communicator.isCommunicationEstablished()) {
@@ -371,6 +434,9 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Opens file explorer on a directory selected for saved files.
+     */
     @FXML
     void showSavedAction(ActionEvent event) {
         if (saveDirPath != null) {
@@ -383,6 +449,9 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Opens file explorer for choosing file to send.
+     */
     @FXML
     void chooseFileToSend(ActionEvent event) {
         FileChooser fc = new FileChooser();
@@ -394,6 +463,9 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Opens file explorer for choosing directory for saving incoming files.
+     */
     @FXML
     void chooseDirToSave(ActionEvent event) {
         DirectoryChooser dc = new DirectoryChooser();
@@ -406,6 +478,9 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Sends selected file to other client.
+     */
     @FXML
     void sendFile(ActionEvent event) {
         if (sendFilePath != null && communicator.isCommunicationEstablished()) {
@@ -433,16 +508,27 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Reads currently selected cyphering mode and algorithm.
+     * @return selected transformation
+     */
     Transformation readSessionSettings() {
         return Transformation.fromText(sendingAlgorithm.getSelectionModel().getSelectedItem() + "/" +
                 sendingChoice.getSelectionModel().getSelectedItem() + "/PKCS5Padding");
     }
 
+    /**
+     * Changes selected cyphering mode and algorithm.
+     * @param transformation transformation setting to be selected
+     */
     void updateSessionSettings(Transformation transformation) {
         sendingAlgorithm.setValue(transformation.getAlgorithm());
         sendingChoice.setValue(transformation.getMode());
     }
 
+    /**
+     * Establishes session between clients.
+     */
     void updateSession() {
         Transformation currentSessionSettings = readSessionSettings();
 
@@ -458,6 +544,10 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Changes network status.
+     * @param stat new status
+     */
     void changeStatusSymbol(NetworkManager.Status stat) {
         switch (stat) {
             case CONNECTED -> {
@@ -475,18 +565,37 @@ public class SecondaryController implements Initializable {
         }
     }
 
+    /**
+     * Adds information message to chat field.
+     * @param message information
+     */
     private void chatPutMessage(String message) {
         textChatArea.appendText("\n" + message);
     }
 
+    /**
+     * Adds message from client to chat field.
+     * @param message message
+     * @param username client name
+     */
     private void chatPutMessage(String message, String username) {
         textChatArea.appendText(genChatMessage(message, username));
     }
 
+    /**
+     * Generates properly formatted chat message string.
+     * @param message message
+     * @param username client name
+     * @return formatted string
+     */
     private String genChatMessage(String message, String username) {
         return "\n[" + username + "]: " + message;
     }
 
+    /**
+     * Gets user private key.
+     * @return private key
+     */
     private PrivateKey getPrivateKey() {
         try {
             byte[] privateKeyBytes = AccountManager.decryptFile(
@@ -502,6 +611,10 @@ public class SecondaryController implements Initializable {
         return null;
     }
 
+    /**
+     * Gets user public key.
+     * @return public key
+     */
     private PublicKey getPublicKey() {
         try {
             byte[] publicKeyBytes = AccountManager.decryptFile(

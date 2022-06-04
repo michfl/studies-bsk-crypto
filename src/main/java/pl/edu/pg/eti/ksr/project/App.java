@@ -9,7 +9,6 @@ import javafx.stage.Stage;
 import pl.edu.pg.eti.ksr.project.accounts.AccountManager;
 
 import java.io.IOException;
-import java.net.URL;
 import java.util.Objects;
 
 /**
@@ -17,8 +16,15 @@ import java.util.Objects;
  */
 public class App extends Application {
 
+    /**
+     * Current scene.
+     */
     private static Scene scene;
 
+    /**
+     * Reference to the secondary controller.
+     * Used for gracefully stopping the application.
+     */
     private static SecondaryController controller;
 
     @Override
@@ -36,6 +42,10 @@ public class App extends Application {
         stage.show();
     }
 
+    /**
+     * Used for changing current scene root.
+     * @param fxml fxml string
+     */
     static void setRoot(String fxml) throws IOException {
         scene.setRoot(loadFXML(fxml));
     }
@@ -49,6 +59,9 @@ public class App extends Application {
         return parent;
     }
 
+    /**
+     * Gracefully stops application.
+     */
     private void closeProgram() {
         if (controller != null) {
             if (controller.getCommunicator().isCommunicationEstablished())
